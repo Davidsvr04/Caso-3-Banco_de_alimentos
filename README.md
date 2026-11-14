@@ -7,8 +7,6 @@
 - Leonel Antonio
 - Juana Ospina
 
-**Materia:** Análisis de Algoritmos
-
 **Caso asignado:** Caso 3 — Banco de alimentos.
 
 **Estado del informe:** esta versión corresponde al Laboratorio 4 (entrega del 18 de noviembre de 2026) y desarrolla completa la **operación 3: cargue de los vehículos**, resuelta con programación dinámica (mochila 0/1). Lo que corresponde a la otra operación y al proceso completo está marcado como pendiente.
@@ -227,7 +225,27 @@ Pendiente para la entrega del 23 de noviembre.
 
 ### 4.2 Verificación
 
-> _En construcción: esta parte la agrega el integrante 3._
+El script [`pruebas.py`](src/cargue_vehiculos/pruebas.py) usa solo `assert` y se detiene en la primera falla, mostrando la instancia que falló. Cubre:
+
+1. **Casos límite**, para las cuatro soluciones: sin lotes; un solo lote que cabe; un solo lote que no cabe; ningún lote cabe; capacidad 0; todos los lotes caben; un lote que llena exactamente la capacidad.
+2. **El ejemplo resuelto a mano** (sección 2.4). La tabla `K` que calcula el programa es igual, casilla por casilla, a la que calculamos en papel, y el resultado es valor 23 con los lotes L1 y L2.
+3. **El contraejemplo** (sección 5.1): por vencimiento da 16, por densidad da 20 y el óptimo es 23.
+4. **El comportamiento de la regla actual**: se detiene en el primer lote que no cabe. La regla por densidad, en cambio, salta ese lote y sigue.
+5. **200 instancias aleatorias pequeñas** (de 0 a 10 lotes, pesos de 1 a 8 kg, capacidad de 0 a 25 kg, semilla fija 2026). En todas, la programación dinámica obtiene el mismo valor óptimo que la exhaustiva.
+6. **La restricción del negocio**, en esas 200 instancias y para las cuatro soluciones: los índices existen y no se repiten (ningún lote sube dos veces ni a medias), el peso total no supera la capacidad, el valor informado es la suma de los valores **completos** de los lotes cargados, y ninguna regla supera el óptimo.
+
+Salida de `python src/cargue_vehiculos/pruebas.py`:
+
+```
+Casos límite: OK
+Ejemplo resuelto a mano (valor 23, lotes L1 y L2): OK
+Contraejemplo: vencimiento 16, densidad 20, óptimo 23: OK
+La regla actual se detiene en el primer lote que no cabe: OK
+200 instancias aleatorias: la programación dinámica coincide con la exhaustiva y ninguna carga supera la capacidad: OK
+Todas las pruebas pasaron.
+```
+
+Además, `medicion.py` vuelve a verificar dentro de cada experimento que la programación dinámica y la exhaustiva den el mismo valor en todos los tamaños donde corren las dos (hasta 20 lotes).
 
 ### 4.3 Cómo medimos
 
@@ -243,7 +261,33 @@ Pendiente para la entrega del 23 de noviembre.
 
 ### 5.1 Contraejemplo: por qué fallan la regla actual y la regla por densidad
 
-> _En construcción: esta parte la agrega el integrante 3._
+**Instancia:** el ejemplo de la sección 2.4, un vehículo de 10 kg con los lotes L0 (6 kg, 15, vence en 3 días), L1 (5 kg, 11, 1 día), L2 (5 kg, 12, 4 días), L3 (3 kg, 5, 2 días) y L4 (2 kg, 3, 5 días).
+
+| Regla | Qué hace, paso a paso | Lotes | Peso | Valor |
+|---|---|---|---|---|
+| **Por vencimiento (actual)** | El orden es L1 (1 día), L3 (2), L0 (3), L2 (4), L4 (5). Sube L1 (5 kg) y L3 (8 kg). L0 pesaría 14 kg y no cabe, así que **se detiene**. | L1, L3 | 8 kg (80 %) | **16** |
+| **Por densidad** | El orden es L0 (2,50/kg), L2 (2,40), L1 (2,20), L3 (1,67), L4 (1,50). Sube L0 (6 kg). L2 y L1 no caben (11 kg), así que los salta. Sube L3 (9 kg). L4 no cabe (11 kg). | L0, L3 | 9 kg (90 %) | **20** |
+| **Óptimo (programación dinámica)** | Tabla de la sección 2.4. | L1, L2 | 10 kg (100 %) | **23** |
+
+**Diferencia:** la regla actual pierde **7 unidades de valor (30 % del óptimo)** y deja 2 kg vacíos. La regla por densidad pierde **3 unidades (13 %)**.
+
+**Por qué fallan.** La regla actual no tiene en cuenta el valor ni el peso, solo la fecha. Además se detiene en el primer lote que no cabe, aunque detrás haya lotes que sí cabrían. Esto concuerda con que en la realidad los vehículos salgan, en promedio, al 78 % de su capacidad. La regla por densidad sí mira el valor por kilo, pero escoge L0 porque es "el más eficiente", y L0 deja 4 kg libres que ningún lote llena bien. Nunca considera que dos lotes de 5 kg, cada uno un poco menos eficiente, llenan el vehículo exacto. Ninguna de las dos reconsidera lo que ya eligió.
+
+**No es un caso raro.** En 1.000 instancias pequeñas aleatorias (generadas por `medicion.py`, semilla fija):
+
+- la regla por vencimiento no llega al óptimo en **537 de 1.000**. En el peor caso pierde el 100 %: si el primer lote por vencer no cabe, el vehículo sale vacío;
+- la regla por densidad no llega al óptimo en **127 de 1.000**, y en el peor caso pierde el **50 %**.
+
+Una instancia donde una regla acierta no prueba nada. Basta una donde falla para saber que no garantiza el máximo que exige el caso.
+
+### 5.2 Condición contraria: cuándo bastaría una estrategia voraz
+
+La programación dinámica es necesaria porque **los lotes no se fraccionan** y porque **sus pesos son distintos**. Si cambiara alguna de estas condiciones, una regla voraz sería la adecuada:
+
+- **Si los lotes se pudieran partir** (por ejemplo, granos a granel, de los que se puede subir solo una parte y obtener la parte proporcional de su valor), el problema sería una **mochila fraccionaria**. Ahí cargar por densidad y partir el último lote **sí** da el óptimo, en Θ(n log n). Nunca queda un hueco, porque siempre se completa con un pedazo del siguiente lote más eficiente. En el contraejemplo se podrían subir L0 (6 kg) y 4 kg de L2 (4 × 2,40 = 9,6), para un valor de 24,6.
+- **Si todos los lotes pesaran lo mismo** (por ejemplo, estibas estandarizadas de igual peso), en el vehículo cabría un número fijo de lotes `k = ⌊W / peso⌋`. Subir los `k` de mayor valor sería óptimo, y una regla voraz por valor bastaría.
+
+Que el problema permita o no fraccionar es lo que decide qué familia de estrategias sirve.
 
 ### 5.3 Recomendación para la operación 3
 
