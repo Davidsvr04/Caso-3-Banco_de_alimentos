@@ -7,6 +7,8 @@
 - Leonel Antonio
 - Juana Ospina
 
+**Materia:** Análisis de Algoritmos
+
 **Caso asignado:** Caso 3 — Banco de alimentos.
 
 **Estado del informe:** esta versión corresponde al Laboratorio 4 (entrega del 18 de noviembre de 2026) y desarrolla completa la **operación 3: cargue de los vehículos**, resuelta con programación dinámica (mochila 0/1). Lo que corresponde a la otra operación y al proceso completo está marcado como pendiente.
@@ -405,13 +407,64 @@ Cómo leer estas cifras:
 
 ### 6.2 Preguntas de impacto, marco normativo y escenario de crecimiento
 
-Pendiente para la entrega del 23 de noviembre.
+#### 6.2.1 Preguntas de impacto
+
+**¿Quién gana y quién podría salir perdiendo con el cambio de regla?**
+Ganan las organizaciones y las familias que reciben las raciones. En nuestro día sintético, cada viaje lleva el máximo valor nutricional que cabe y el vehículo sale lleno. También gana el banco: con el mismo combustible y los mismos conductores reparte más. El riesgo está en los lotes que no suben. La programación dinámica no mira la fecha de vencimiento, así que un lote perecedero de bajo valor por kilo podría quedarse en bodega varios días seguidos y terminar perdiéndose. Eso iría en contra del propósito mismo del banco. Por eso recomendamos una de dos medidas: (a) cargar primero los lotes que vencen en menos de 24 horas y resolver la mochila con la capacidad que quede, o (b) subir el valor de los lotes que están por vencer, para que el algoritmo los prefiera por sí solo.
+
+**¿Quién decide qué significa "valor nutricional"?**
+El algoritmo maximiza el número que le entregan, y ese número sale de las raciones por kilogramo y de la prioridad de cada categoría. Escoger esas prioridades es una decisión ética y de política del banco: por ejemplo, cuánto pesa la proteína frente a los granos, o si se favorecen los hogares con niños. No debe tomarla quien programa. Recomendamos que la defina el equipo de nutrición y de trabajo social del banco, que quede escrita y que se revise periódicamente, porque cambiarla cambia qué alimentos llegan a quién.
+
+**¿El algoritmo reemplaza al coordinador?**
+No. Es una herramienta de apoyo. El coordinador recibe una propuesta de carga óptima y puede modificarla: forzar un lote urgente, sacar uno dañado o separar productos que no deben viajar juntos. Para que confíe en la herramienta, el sistema debería explicar por qué un lote no subió (por ejemplo: "no cabía junto con lotes de mayor valor"). La responsabilidad sobre la carga sigue siendo de una persona.
+
+**¿Hay datos sensibles en esta operación?**
+El cargue solo usa datos de los lotes (peso, valor y vencimiento), no datos de personas. Si más adelante el sistema cruzara la carga con las organizaciones o los hogares beneficiarios, ese tratamiento quedaría sujeto a la Ley 1581 de 2012.
+
+#### 6.2.2 Marco normativo
+
+| Norma | Qué establece | Relación con la operación 3 |
+|---|---|---|
+| [Ley 1990 de 2019](https://dnp.gov.co/publicaciones/Revista-Juridica/Paginas/Reglamentación-de-la-política-pública-integral-para-disminuir-pérdidas-y-desperdicios-de-alimentos.aspx) | Crea la política contra la pérdida y el desperdicio de alimentos en Colombia. | Llevar más alimento por viaje apoya el objetivo de la política. Dejar perecederos en bodega iría en contra de ella. Por eso proponemos la regla de prioridad por vencimiento de la sección 6.2.1. |
+| [Decreto 375 de 2022](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=183946) | Reglamenta la Ley 1990: agrega la Parte 22 al Decreto 1071 de 2015, sobre la disminución de las pérdidas y los desperdicios de alimentos. | Es el marco que orienta los programas de aprovechamiento y distribución de alimentos donados, como la operación del banco. |
+| [Ley 2380 de 2024](https://gestornormativo.creg.gov.co/gestor/entorno/docs/ley_2380_2024.htm) | Promueve la donación de alimentos aptos para el consumo humano a los bancos de alimentos. | Más donaciones significan más lotes candidatos por ruta. Es uno de los motores del escenario de crecimiento (6.2.3). |
+| [Ley 2536 de 2025](https://normograma.supersalud.gov.co/compilacion/docs/ley_2536_2025.htm) | Crea el Fondo Nacional para la Lucha contra el Hambre, la Inseguridad Alimentaria y el Desperdicio de Alimentos, y reconoce a los bancos de alimentos territoriales como aliados. | Puede traducirse en más vehículos y más volumen. Lo tenemos en cuenta en el escenario de crecimiento. |
+| [Resolución 2674 de 2013 (MinSalud)](https://normograma.invima.gov.co/normograma/compilacion/docs/resolucion_minsaludps_2674_2013.htm) | Fija los requisitos sanitarios para quienes almacenan, transportan y distribuyen alimentos, incluidos los vehículos. | **Es un límite de nuestro modelo:** la mochila solo controla el peso y no sabe si dos lotes pueden viajar juntos (por ejemplo, refrigerados con secos). En producción habría que agregar esa restricción, por ejemplo resolviendo una mochila por cada compartimento del vehículo. |
+| [Ley 1581 de 2012](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981) | Régimen general de protección de datos personales. | Hoy no aplica a esta operación, porque solo usa datos de lotes. Aplicaría si se cruzan cargas con beneficiarios. |
+| ODS 2 (hambre cero) y meta 12.3 (reducir el desperdicio de alimentos) | Compromisos internacionales de Colombia. | La operación aporta a los dos, siempre que la optimización no aumente el desperdicio de perecederos. |
+
+#### 6.2.3 Escenario de crecimiento
+
+Usamos el modelo de la sección 4.6, `t ≈ 186,7 ns × n × (W + 1)` por vehículo. El día sintético medido (2,67 s) quedó por debajo de lo que predice el modelo (3,7 s), así que estas cifras son conservadoras: si se equivocan, es por exceso. La memoria se estima a partir de los 25 MB que medimos para una tabla de 600 lotes y 4.000 kg.
+
+| Escenario | Celdas por día | Tiempo por día | % de la ventana de 2 h | Memoria por vehículo | Energía por año |
+|---|---|---|---|---|---|
+| Hoy (peor caso): 14 vehículos, 600 lotes, 4.000 kg | 3,4 × 10⁷ | ≈ 6,3 s | 0,09 % | ≈ 25 MB | ≈ 0,095 kWh |
+| Flota al doble (28 vehículos) | 6,7 × 10⁷ | ≈ 12,5 s | 0,17 % | ≈ 25 MB | ≈ 0,19 kWh |
+| Lotes al doble (1.200 por ruta) | 6,7 × 10⁷ | ≈ 12,5 s | 0,17 % | ≈ 50 MB | ≈ 0,19 kWh |
+| Vehículos de 8.000 kg | 6,7 × 10⁷ | ≈ 12,5 s | 0,17 % | ≈ 50 MB | ≈ 0,19 kWh |
+| Todo al doble (28 vehículos, 1.200 lotes, 8.000 kg) | 2,7 × 10⁸ | ≈ 50 s | 0,70 % | ≈ 100 MB | ≈ 0,76 kWh |
+| Error de unidades: pesos en **gramos** (W = 4.000.000) | 3,4 × 10¹⁰ | ≈ 1 h 45 min | 87 % | ≈ 25 GB | ≈ 95 kWh |
+
+Qué se lee en la tabla:
+
+- **El crecimiento realista no es un problema.** Duplicar la flota, los lotes o la capacidad duplica el tiempo, porque el costo es lineal en cada uno. Aun duplicando las tres cosas a la vez, la operación tarda menos de un minuto (menos del 1 % de la ventana) y gasta menos de 1 kWh al año.
+- **El verdadero riesgo es la unidad de medida.** Como el algoritmo es pseudo-polinomial, registrar los pesos en gramos multiplica la tabla por 1.000 sin mejorar la respuesta. Se comería casi toda la ventana que comparten las tres operaciones (un 87 %), sin dejar tiempo para las otras dos, y necesitaría unos 25 GB de memoria por vehículo, más de lo que tiene un computador de 150 W como el del caso. La regla operativa debe quedar escrita: **los pesos se registran en kilogramos enteros**.
+- **La exhaustiva sigue siendo imposible en cualquier escenario:** en toda la ventana solo alcanza a resolver rutas de unos 30 lotes, y el caso tiene como mínimo 300.
 
 ---
 
 ## 7. Conclusiones
 
-Pendiente para la entrega del 23 de noviembre.
+**Operación 3: cargue de los vehículos**
+
+1. **La regla actual no garantiza el máximo, y falla con frecuencia.** En el contraejemplo, cargar por vencimiento da 16 de un óptimo de 23 (30 % menos) y deja 2 kg vacíos. En 1.000 instancias aleatorias no llega al óptimo en 537, y en el peor caso el vehículo sale vacío. Detenerse en el primer lote que no cabe es coherente con que hoy los vehículos salgan al 78 % de su capacidad.
+2. **Cargar por densidad es tentador pero tampoco es exacto.** En datos realistas llega al 99,8 % del óptimo, pero falla en el 13 % de las instancias pequeñas y puede perder hasta la mitad del valor. El caso exige el máximo, no una aproximación, así que no basta.
+3. **La programación dinámica (mochila 0/1) resuelve el problema de forma exacta.** Coincidió con la búsqueda exhaustiva en 200 instancias aleatorias y en todos los tamaños medidos, nunca superó la capacidad y nunca fraccionó un lote.
+4. **Lo medido confirma la teoría.** Al duplicar n o W, las celdas calculadas se multiplicaron exactamente por 2 y el tiempo por un factor entre 1,66 y 2,96, alrededor del 2 esperado (la variación es ruido del portátil). La exhaustiva creció como n·2ⁿ: al pasar de 10 a 20 lotes, sus operaciones se multiplicaron por 2.048.
+5. **Cabe de sobra en la operación real.** En el peor caso tarda unos 6 segundos por día, el 0,09 % de la ventana de 2 horas. Cuesta unos 95 Wh adicionales al año frente a la regla actual, un costo despreciable comparado con salir con cada vehículo lleno. La exhaustiva no terminaría nunca.
+6. **Hay límites que el banco debe conocer:** el costo depende de la capacidad (los pesos deben quedar en kilogramos enteros); el modelo no tiene en cuenta el vencimiento ni la compatibilidad sanitaria entre productos; y la definición del valor nutricional es una decisión del banco, no del algoritmo.
+7. **Qué aprendimos:** escoger la estrategia depende de las propiedades del problema y no de la intuición. Si los lotes se pudieran fraccionar, la regla voraz por densidad sería óptima. Como no se pueden fraccionar, se necesita programación dinámica.
 
 ---
 
@@ -431,7 +484,7 @@ pip install -r requirements.txt
 # 3. Ejecutar las pruebas (menos de un segundo)
 python src/cargue_vehiculos/pruebas.py
 
-# 4. Ejecutar la medición y regenerar las gráficas (alrededor de un minuto)
+# 4. Ejecutar la medición y regenerar las gráficas (de 1 a 4 minutos, según el computador)
 python src/cargue_vehiculos/medicion.py
 ```
 
