@@ -249,7 +249,75 @@ Además, `medicion.py` vuelve a verificar dentro de cada experimento que la prog
 
 ### 4.3 Cómo medimos
 
-> _En construcción: esta parte la agrega el integrante 4._
+- **Datos:** [`datos.py`](src/cargue_vehiculos/datos.py) genera lotes con semilla fija (base `2026`). En cada tamaño se generan 3 instancias distintas y **las mismas instancias** se usan para todas las soluciones.
+- **Cronómetro:** [`medicion.py`](src/cargue_vehiculos/medicion.py) usa `time.perf_counter()` solo alrededor de la llamada a cada solución. La generación de datos queda por fuera. Antes de cada medición se llama a `gc.collect()` para que el recolector de basura no caiga en medio.
+- **Repeticiones:** cada instancia se ejecuta 5 veces (la exhaustiva, 1 vez) y se reporta el promedio de todas las ejecuciones.
+- **Experimento 1, n pequeño:** n = 4, 6, 8, 10, 12, 14, 16, 18, 20 lotes, con W = 1.000 kg fijo. Corren las cuatro soluciones. Las parejas de duplicación son 4→8, 6→12, 8→16 y 10→20.
+- **Experimento 2, n grande:** n = 50, 100, 200, 300, 400, 600, 800, 1.200 lotes, con W = 4.000 kg fijo (la capacidad máxima del caso). La exhaustiva ya no corre. Las parejas de duplicación van de 50→100 a 600→1.200.
+- **Experimento 3, W creciente:** n = 300 lotes fijos y W = 500, 1.000, 2.000, 4.000, 8.000, 16.000 kg, solo para la programación dinámica.
+- **Un día con el volumen real:** con `generar_flota` se arman 14 vehículos (capacidad entre 2.500 y 4.000 kg, entre 300 y 600 lotes cada uno) y se ejecutan las soluciones polinomiales. Este día sirve para comprobar la extrapolación.
+- **Computador:** portátil con Intel Core i5-12450H (8 núcleos), Windows 11, Python 3.12. El experimento completo tarda unos 4 minutos.
+- Las mediciones crudas quedan en [`mediciones.csv`](graficas/cargue_vehiculos/mediciones.csv) y las tablas calculadas en [`resumen.md`](graficas/cargue_vehiculos/resumen.md).
+
+### 4.4 Gráficas
+
+![Tiempo medio frente al número de lotes](graficas/cargue_vehiculos/tiempo_vs_n.png)
+
+*Izquierda:* con eje y logarítmico, la exhaustiva es una recta empinada, que es la forma de una exponencial. La programación dinámica crece despacio y la supera desde unos 10 lotes. *Derecha:* con n grande y ejes lineales, la programación dinámica sigue aproximadamente una recta (lineal en n con W fijo); el quiebre alrededor de 800 lotes es ruido del portátil (cambios de frecuencia del procesador y procesos en segundo plano). Las dos reglas quedan casi pegadas al cero (por debajo de 7 ms incluso con 1.200 lotes) y una tapa a la otra.
+
+![Operaciones elementales frente al número de lotes](graficas/cargue_vehiculos/operaciones_vs_n.png)
+
+El conteo de operaciones tiene la misma forma que el tiempo, pero sin ruido. La exhaustiva sube exactamente como n·2ⁿ y la programación dinámica como n·(W + 1).
+
+![Tiempo de la programación dinámica frente a la capacidad](graficas/cargue_vehiculos/tiempo_vs_capacidad.png)
+
+Con los mismos 300 lotes, el tiempo crece en línea recta con la capacidad W: de 500 a 16.000 kg pasa de unos 9 ms a unos 1.150 ms. El costo depende de W y no solo del número de lotes.
+
+### 4.5 Lo medido contra lo esperado
+
+Factor por el que se multiplica cada medida al duplicar el tamaño (tomado de [`resumen.md`](graficas/cargue_vehiculos/resumen.md)):
+
+| Solución | Duplicación | Tiempo × | Operaciones × | Esperado por la complejidad |
+|---|---|---|---|---|
+| Programación dinámica (W fijo) | n: 300 → 600 | 1,99 | 2,00 | 2 (lineal en n) |
+| Programación dinámica (W fijo) | n: 600 → 1.200 | 1,66 | 2,00 | 2 |
+| Programación dinámica (n fijo) | W: 4.000 → 8.000 | 2,96 | 2,00 | 2 (lineal en W) |
+| Programación dinámica (n fijo) | W: 8.000 → 16.000 | 2,49 | 2,00 | 2 |
+| Exhaustiva | n: 8 → 16 | 361 | 512 | 2·2⁸ = 512 |
+| Exhaustiva | n: 10 → 20 | 1.720 | 2.048 | 2·2¹⁰ = 2.048 |
+| Regla actual (vencimiento) | n: 300 → 600 | 2,19 | 2,19 | 2·log₂600 / log₂300 ≈ 2,24 |
+| Voraz por densidad | n: 300 → 600 | 2,46 | 2,24 | ≈ 2,24 |
+
+Lo que se lee en la tabla:
+
+- **Las operaciones coinciden exactamente con la teoría.** La programación dinámica cuenta celdas, y al duplicar n o W se duplican las celdas (factor 2,00). La exhaustiva revisa `n·2ⁿ` lotes, y al pasar de 10 a 20 el conteo se multiplica por 2.048, igual que la fórmula.
+- **El tiempo de la programación dinámica sigue al conteo.** Da factores entre 1,66 y 2,96, alrededor del 2 esperado. La diferencia es ruido del sistema operativo, de los cambios de frecuencia del procesador del portátil y del manejo de memoria de Python, que pesa más cuando las tablas son grandes.
+- **El tiempo de la exhaustiva crece menos que su conteo en n pequeño** (361 en vez de 512, y 1.720 en vez de 2.048). Con pocos lotes, una buena parte del tiempo es costo fijo: llamar la función, crear el generador de `product`, etc. Ese costo no se multiplica por 2ⁿ. A medida que n crece, el factor se acerca al teórico (de 4→8 da 15,9 de 32 esperado, y de 10→20 ya da 1.720 de 2.048).
+- **En n pequeño (experimento 1), los tiempos de la programación dinámica y de las reglas son de décimas de milisegundo**, y sus factores (entre 1,2 y 5,8) son sobre todo ruido. Por eso, para la programación dinámica y las reglas nos apoyamos en el experimento 2.
+- **Las reglas** crecen como n log n. El factor esperado es un poco más que 2 (≈ 2,24), y medimos 2,19 y 2,46.
+
+### 4.6 Escala real y ventana operativa
+
+**Volumen real (peor caso de un día):** 14 vehículos, cada uno con 600 lotes y W = 4.000 kg.
+
+**Cómo extrapolamos.** No usamos una regla de tres sobre un solo punto. Primero confirmamos en las gráficas la forma de cada curva y después ajustamos una constante a esa forma:
+
+- **Programación dinámica:** las gráficas muestran que el tiempo es lineal en n (con W fijo) y lineal en W (con n fijo). Por eso usamos `t ≈ c · n · (W + 1)`. Promediando los puntos de los experimentos 2 y 3 con n ≥ 100, sale `c ≈ 186,7 ns por celda`. Peor día: 14 × 600 × 4.001 ≈ 33,6 millones de celdas, es decir, **≈ 6,3 s**.
+- **Reglas:** `t ≈ c · n log₂ n`, con `c ≈ 558 ns` (vencimiento) y `c ≈ 768 ns` (densidad). Peor día: **≈ 43 ms** y **≈ 60 ms**.
+- **Exhaustiva:** `t ≈ c · n · 2ⁿ`, con `c ≈ 215 ns`, ajustada en n = 14 a 20, donde el costo fijo ya pesa poco. Incluso en su caso más favorable (300 lotes por ruta), da 14 × 215 ns × 300 × 2³⁰⁰ ≈ **5,8 × 10⁷⁹ años**, unas 4 × 10⁶⁹ veces la edad del universo (13.800 millones de años). **La exhaustiva sencillamente no terminaría.** Con la misma constante, en toda la ventana de 2 horas solo alcanzaría a resolver una ruta de unos **30 lotes**.
+
+**Comprobación de la extrapolación.** Ejecutamos un día sintético completo, con 14 vehículos y 6.193 lotes en total (unos 20 millones de celdas). La programación dinámica tardó **2,67 s medidos**. El modelo predice 20 millones × 186,7 ns ≈ 3,7 s. Lo medido queda por debajo de lo predicho porque la constante se ajustó con puntos sueltos en los que el portátil tuvo más variación de velocidad; aun así, el orden de magnitud coincide y la extrapolación queda del lado conservador (sobrestima el tiempo, no lo subestima).
+
+| Solución | Tiempo por día (peor caso) | Fracción de la ventana de 2 h | ¿Cabe? |
+|---|---|---|---|
+| Programación dinámica | ≈ 6,3 s | ≈ 0,09 % | Sí, con mucha holgura |
+| Regla actual (vencimiento) | ≈ 43 ms | ≈ 0,0006 % | Sí |
+| Voraz por densidad | ≈ 60 ms | ≈ 0,0008 % | Sí |
+| Exhaustiva | ≈ 5,8 × 10⁷⁹ años | — | No: no termina |
+
+La ventana de 2 horas la comparten las operaciones 1 a 3. Aun así, la programación dinámica usa unos 6 segundos de 7.200, lo que deja casi toda la ventana para las otras dos operaciones.
+
+*Todos estos tiempos son estimaciones, medidas en un solo computador con datos sintéticos. En el computador del banco la constante puede ser distinta, pero la forma de las curvas no cambia.*
 
 ### 4.7 Evaluación de la segunda operación y del proceso completo
 
@@ -291,7 +359,22 @@ Que el problema permita o no fraccionar es lo que decide qué familia de estrate
 
 ### 5.3 Recomendación para la operación 3
 
-> _En construcción: esta parte la agrega el integrante 4._
+**Recomendamos adoptar la programación dinámica (mochila 0/1) para planear el cargue de cada vehículo.**
+
+**Qué gana el banco frente a hoy:**
+
+- **El máximo valor nutricional por viaje, garantizado.** No es una aproximación, que es lo que exige el caso. En el día sintético de 14 vehículos, la programación dinámica cargó **637.554** unidades de valor, contra **270.154** de la regla por vencimiento (42,4 % del óptimo). Este contraste tan grande depende de nuestras categorías sintéticas, porque las de mayor prioridad no son las que vencen primero. Con los datos reales del banco la cifra será otra, pero la dirección no cambia: la regla actual no tiene en cuenta el valor.
+- **Vehículos más llenos.** En el día sintético, la programación dinámica llenó en promedio el **100 %** de la capacidad, frente al **94,2 %** de la regla actual. En los datos del cliente la regla actual llega al 78 %. La diferencia sugiere que los lotes reales son más pesados o más variados que los nuestros, y en ese caso la ganancia sería aún mayor.
+- **Cabe de sobra en la ventana:** unos 6 segundos por día, en el peor caso, de una ventana de 2 horas.
+
+**Por qué no la regla por densidad, si llegó al 99,8 %.** Es muy rápida y en datos realistas se acerca mucho al óptimo. Pero no lo garantiza: falla en el 13 % de las instancias pequeñas y puede perder hasta la mitad del valor. El caso pide el máximo exacto, y el costo de la programación dinámica (unos segundos al día) es despreciable.
+
+**Riesgos y límites que el banco debe conocer:**
+
+1. **El costo depende de la capacidad (pseudo-polinomial).** Si los pesos se registraran en gramos en vez de kilogramos, la tabla sería 1.000 veces más grande: unas 1 hora y 45 minutos por día (casi toda la ventana) y unos 25 GB de memoria por vehículo, más de lo que tiene un computador común. Hay que mantener los pesos en kilogramos enteros. Si llegaran vehículos más grandes (por ejemplo, de 8.000 kg), el tiempo solo se duplicaría (~13 s), lo cual sigue siendo manejable.
+2. **Memoria.** La tabla del vehículo más grande (600 lotes, 4.000 kg) tiene unos 2,4 millones de casillas. Medimos con `tracemalloc` que ocupa unos 25 MB en Python. Se libera al terminar cada vehículo, así que el uso no se acumula entre los 14.
+3. **La programación dinámica no mira el vencimiento.** Maximiza el valor nutricional y podría dejar en bodega lotes a punto de vencer, lo que se convertiría en desperdicio. Para mitigarlo hay dos opciones: (a) subir el valor de los lotes que vencen pronto, para que la prioridad ya lo incluya; o (b) cargar primero los lotes que vencen en 24 horas y resolver la mochila con la capacidad restante. Esta decisión le corresponde al banco y se discutirá en las implicaciones del informe final.
+4. **Crecimiento.** Si la flota creciera, el tiempo crecería en proporción al número de vehículos. Si crecieran los lotes por ruta, crecería en proporción a n. Si crecieran las capacidades, en proporción a W. Duplicar cualquiera de los tres duplica el tiempo, y aun así cabe con holgura.
 
 ### 5.4 Comparación entre las estrategias de las dos operaciones y solución recomendada
 
@@ -303,7 +386,22 @@ Pendiente para la entrega del 23 de noviembre.
 
 ### 6.1 Consumo energético de la operación 3
 
-> _En construcción: esta parte la agrega el integrante 4._
+Usamos `kWh = kW × h`, con la potencia del computador del caso (150 W = 0,150 kW) y el tiempo extrapolado del peor caso diario (sección 4.6). La planeación se hace una vez al día, 365 días al año.
+
+| Solución | Tiempo por día | Energía por día | Energía por año |
+|---|---|---|---|
+| Programación dinámica | ≈ 6,3 s = 1,74 × 10⁻³ h | 0,150 × 1,74 × 10⁻³ ≈ **2,6 × 10⁻⁴ kWh** (0,26 Wh) | ≈ **0,095 kWh** (95 Wh) |
+| Regla actual (vencimiento) | ≈ 43 ms = 1,2 × 10⁻⁵ h | ≈ **1,8 × 10⁻⁶ kWh** | ≈ **0,00066 kWh** (0,66 Wh) |
+| Voraz por densidad | ≈ 60 ms | ≈ 2,5 × 10⁻⁶ kWh | ≈ 0,00091 kWh |
+| Exhaustiva | ≈ 5,8 × 10⁷⁹ años | ≈ 8 × 10⁸² kWh | No aplica: no termina |
+
+**Diferencia anual entre la programación dinámica y la regla actual:** ≈ 0,095 − 0,0007 ≈ **0,095 kWh al año (unos 95 Wh)**. Es más o menos lo que gasta un bombillo LED de 10 W en nueve horas y media.
+
+Cómo leer estas cifras:
+
+- **Son estimaciones.** Asumimos que el computador consume sus 150 W completos solo durante el cálculo. Como el computador está encendido toda la ventana para las tres operaciones, lo que calculamos es el consumo *adicional* atribuible a esta operación.
+- **El costo energético de la estrategia óptima es despreciable.** Pasar de la regla actual a la programación dinámica cuesta unos 95 Wh al año. A cambio, cada vehículo sale lleno con el máximo valor nutricional. Si eso evita aunque sea un viaje extra de un camión en todo el año, el ahorro de combustible supera con creces esos 95 Wh. Este impacto lo cuantificaremos en el informe final.
+- **La exhaustiva no es una opción ni energéticamente.** Su cifra no tiene sentido físico: el cálculo no terminaría nunca.
 
 ### 6.2 Preguntas de impacto, marco normativo y escenario de crecimiento
 
