@@ -3,15 +3,17 @@
 **Integrantes**
 
 - David Viloria
+- Leonel
 - Luis Lopera
-- Leonel Antonio
 - Juana Ospina
 
-**Materia:** Análisis de Algoritmos
+**Caso asignado:** Caso 3 — Banco Regional de Alimentos (planeación de despachos).
 
-**Caso asignado:** Caso 3 — Banco de alimentos.
+**Entregables:** este `README.md` (informe técnico) y [`informe.pdf`](informe.pdf), que tiene el mismo contenido.
 
-**Estado del informe:** esta versión corresponde al Laboratorio 4 (entrega del 18 de noviembre de 2026) y desarrolla completa la **operación 3: cargue de los vehículos**, resuelta con programación dinámica (mochila 0/1). Lo que corresponde a la otra operación y al proceso completo está marcado como pendiente.
+## Resumen ejecutivo
+
+> _En construcción: esta parte la agrega el integrante 4._
 
 ## Contenido
 
@@ -22,17 +24,33 @@
 5. [Análisis comparativo](#5-análisis-comparativo)
 6. [Implicaciones éticas, sociales y ambientales](#6-implicaciones-éticas-sociales-y-ambientales)
 7. [Conclusiones](#7-conclusiones)
-8. [Reproducción](#8-reproducción)
+8. [Anexos](#8-anexos)
+9. [Reproducción](#9-reproducción)
 
 ---
 
 ## 1. Análisis del problema
 
-### 1.1 Proceso completo y operaciones críticas
+### 1.1 Descripción del problema computacional
 
-Pendiente para la entrega del 23 de noviembre.
+> _En construcción: esta parte la agrega el integrante 4._
 
-### 1.2 Operación 3: cargue de los vehículos
+### 1.4 Entradas, salidas y restricciones
+
+#### 1.4.1 Operación 1 — Consulta de inventario
+
+| Elemento | Descripción |
+|---|---|
+| Entradas | El inventario: n lotes (`codigo_lote`, `categoria`, `fecha_vencimiento`, `peso_kg`, `raciones`, `donante`), con n ≈ 220.000 activos + hasta 9.000 nuevos. Una consulta es un código, o un rango de fechas `[desde, hasta]`. |
+| Salidas | Por código: el lote, o "no existe". Por rango: todos los lotes con `desde ≤ fecha_vencimiento ≤ hasta`, en orden FEFO. |
+| Restricciones | Cada consulta por código responde en **menos de 1 s**. Las consultas por rango caben en la ventana de 2 h, junto con las operaciones 2 y 3. Ningún lote del rango se omite y ninguno de fuera se incluye. El registro original no se modifica. |
+| Volumen | 30.000 consultas por código al día. Asumimos 14 consultas por rango en la planeación (una por ruta). |
+
+#### 1.4.2 Operación 2 — Ordenamiento FEFO
+
+> _En construcción: esta parte la agrega el integrante 2._
+
+#### 1.4.3 Operación 3 — Cargue de los vehículos
 
 Cada madrugada, entre las 03:00 y las 05:00, el banco de alimentos planea qué lotes sube a cada vehículo. Un lote es una unidad que no se parte: o va completo en el vehículo o se queda en la bodega. El objetivo es que cada vehículo salga con el mayor valor nutricional posible sin pasarse de su capacidad.
 
@@ -55,27 +73,79 @@ En un día hay 14 vehículos, así que la operación se ejecuta 14 veces, una po
 1. La suma de los pesos de los lotes cargados no puede superar `capacidad_kg`.
 2. Ningún lote se fracciona: cada índice aparece como máximo una vez y aporta su valor completo.
 3. El valor cargado debe ser **el máximo posible**, no una aproximación.
-4. Todo debe caber en la ventana de planeación de 2 horas (03:00 a 05:00), que la operación 3 comparte con las operaciones 1 y 2, en un computador de unos 150 W.
+4. Todo debe caber en la ventana de planeación de 2 horas (03:00 a 05:00), que la operación 3 comparte con la consulta por rango (operación 1) y el ordenamiento FEFO (operación 2), en un computador de unos 150 W.
 
-### 1.3 Supuestos
+#### 1.4.4 Operación 4 — Saturación de la bodega
+
+> _En construcción: esta parte la agrega el integrante 3._
+
+### 1.5 Supuestos
+
+> _En construcción: esta parte la agrega el integrante 4._
+
+**Operación 1.** Los códigos de lote son únicos. Un código consultado que no existe (por ejemplo, mal digitado) es un caso válido y debe responder "no existe". Asumimos 14 consultas por rango al día, una por ruta, del tipo "¿qué vence en las próximas 72 horas?". Si fueran más, el tiempo crece en proporción y la conclusión no cambia.
+
+> _En construcción: esta parte la agrega el integrante 2._
+
+**Operación 3.**
 
 - **Pesos enteros en kilogramos.** El caso así lo dice, y esto es lo que permite usar la capacidad como índice de la tabla. Si llegara un peso con decimales se redondearía hacia arriba, para no correr el riesgo de pasarse de la capacidad.
 - **Una ruta por vehículo.** Los 14 vehículos tienen cada uno su propia lista de lotes candidatos, y la planeación de un vehículo no afecta la de otro. Un lote no compite por dos vehículos a la vez.
-- **Planeación diaria.** La ventana de 03:00 a 05:00 se repite todos los días, así que para la proyección anual usamos 365 ejecuciones.
+- **Planeación diaria.** La ventana de 03:00 a 05:00 se repite cada día de operación; el cliente informa 300 días al año.
 - **Interpretación de la regla actual.** El coordinador ordena los lotes del que vence primero al que vence último. Los va subiendo en ese orden y **se detiene en el primer lote que no cabe**, aunque más adelante haya lotes más livianos que sí cabrían. Si dos lotes vencen el mismo día, va primero el que aparece antes en la lista. Ejemplo: con 100 kg de capacidad y los lotes A (60 kg, vence en 1 día), B (50 kg, 2 días) y C (10 kg, 3 días), la regla sube A, ve que B ya no cabe (110 kg) y para. C nunca se revisa. El vehículo sale con 60 kg.
 - **Interpretación de la regla por densidad.** Se ordena por valor nutricional por kilogramo, de mayor a menor (en empate, el índice menor). Esta regla **no** se detiene: si un lote no cabe, lo salta y prueba el siguiente. La comparación se hace con enteros (`v_i · w_j` frente a `v_j · w_i`) para no depender del redondeo.
 - **Empates en el óptimo.** Si hay varias cargas con el mismo valor máximo, cualquiera es válida. Las pruebas comparan el valor, no la lista exacta de lotes.
 - **Datos sintéticos.** Los lotes de las mediciones se generan en cinco categorías inventadas por el equipo (proteína, lácteos, frutas y verduras, granos, enlatados). Cada categoría tiene sus propias raciones por kg, su prioridad y su rango de días para vencer, con pesos entre 20 y 500 kg. No son cifras del cliente: solo le dan una estructura realista a los datos.
 
+> _En construcción: esta parte la agrega el integrante 3._
+
 ---
 
 ## 2. Diseño de la solución
 
-### 2.1 Estructuras de datos, diagramas y pseudocódigo del proceso completo
+### 2.1 Estructuras de datos seleccionadas
 
-Pendiente para la entrega del 23 de noviembre.
+> _En construcción: esta parte la agrega el integrante 4._
 
-### 2.2 Operación 3: por qué el problema admite programación dinámica
+### 2.2 Operación 1 — Consulta de inventario
+
+**Estrategias diseñadas.**
+
+| Consulta | Estrategia A (actual) | Estrategia B | Estrategia C (recomendada) |
+|---|---|---|---|
+| Por código | Búsqueda lineal: Θ(n) | Búsqueda binaria sobre la lista ordenada por código: Θ(log n) | **Tabla hash**: Θ(1) en promedio |
+| Por rango de vencimiento | Búsqueda lineal: Θ(n) | — | **Dos búsquedas binarias sobre la lista FEFO**: Θ(log n + r) |
+
+**Estrategia de diseño.** La búsqueda binaria es una estrategia de **reducción a la mitad** (de la familia de dividir y vencer): en cada paso descarta la mitad de la lista donde el objetivo no puede estar. Funciona porque la lista está ordenada, y en el proceso ya existe una lista ordenada por vencimiento: la que produce la operación 2. Así, el índice por fecha no cuesta nada adicional. La tabla hash cambia memoria (un diccionario de 229.000 entradas, construido una vez al día en unos 23 ms) por consultas en tiempo constante.
+
+**Cómo reduce el consumo.** El costo de construir los índices se paga una vez al día. Después, cada una de las 30.000 consultas por código revisa 1 entrada en vez de unas 125.000 en promedio.
+
+**Pseudocódigo del rango por búsqueda binaria.**
+
+```
+POR_VENCER(fefo, vencimientos, desde, hasta):
+    inicio ← primera posición i con vencimientos[i] ≥ desde      ▹ búsqueda binaria
+    fin    ← primera posición i con vencimientos[i] > hasta      ▹ búsqueda binaria
+    devolver fefo[inicio .. fin − 1]                             ▹ los r lotes del rango, ya en orden FEFO
+
+PRIMERA_NO_MENOR(valores, objetivo):
+    bajo ← 0;  alto ← |valores|
+    mientras bajo < alto:
+        medio ← ⌊(bajo + alto) / 2⌋
+        si valores[medio] < objetivo:  bajo ← medio + 1          ▹ la respuesta está a la derecha
+        si no:                         alto ← medio              ▹ la respuesta está aquí o a la izquierda
+    devolver bajo
+```
+
+**Ejemplo resuelto a mano.** En el **Anexo A.1** se busca un código y un rango, paso a paso, en un inventario de 8 lotes. Con un código que no existe, la búsqueda lineal hace 8 comparaciones y la binaria 3; el rango "vence entre los días 2 y 4" sale con dos búsquedas binarias, ya en orden FEFO.
+
+### 2.3 Operación 2 — Ordenamiento FEFO
+
+> _En construcción: esta parte la agrega el integrante 2._
+
+### 2.4 Operación 3 — Cargue de los vehículos
+
+#### 2.4.1 Por qué el problema admite programación dinámica
 
 El cargue de un vehículo es una **mochila 0/1**: cada lote tiene un peso y un valor, el vehículo tiene una capacidad, y cada lote sube entero o no sube. Lo resolvemos decidiendo lote por lote si sube o no. Lo que queda después de cada decisión se describe con dos números: cuántos lotes faltan por decidir y cuántos kilogramos siguen libres.
 
@@ -86,16 +156,16 @@ El cargue de un vehículo es una **mochila 0/1**: cada lote tiene un peso y un v
 
 Es decir, la mejor solución del problema grande se arma con la mejor solución de un problema más pequeño del mismo tipo.
 
-**Subproblemas que se repiten.** Muchas decisiones distintas terminan en el mismo subproblema. En el ejemplo de la sección 2.4, el subproblema "lo mejor con L0 y L1 en 5 kg" (`K[2][5]`) lo necesitan dos casillas diferentes:
+**Subproblemas que se repiten.** Muchas decisiones distintas terminan en el mismo subproblema. En el ejemplo del Anexo A.3, el subproblema "lo mejor con L0 y L1 en 5 kg" (`K[2][5]`) lo necesitan dos casillas diferentes:
 
 - `K[3][5]`, cuando decide **no** subir L2 (se queda con los mismos 5 kg),
 - `K[3][10]`, cuando decide **sí** subir L2 (le quedan 10 − 5 = 5 kg).
 
 Con 300 lotes, la búsqueda exhaustiva tendría que revisar 2³⁰⁰ subconjuntos. En cambio, solo existen `(n + 1)·(W + 1)` subproblemas distintos. Para el peor caso real son 601 × 4.001 ≈ 2,4 millones. Al guardar cada uno en una tabla, se calcula una sola vez.
 
-**¿Por qué no una regla voraz?** Porque elegir un lote cambia la capacidad que queda, y un lote que parece buena idea ahora puede dejar un hueco que ningún otro lote llena. La sección 5.1 lo muestra con números para las dos reglas voraces que se usan o se podrían usar.
+**¿Por qué no una regla voraz?** Porque elegir un lote cambia la capacidad que queda, y un lote que parece buena idea ahora puede dejar un hueco que ningún otro lote llena. La sección 5.3.1 lo muestra con números para las dos reglas voraces que se usan o se podrían usar.
 
-### 2.3 La recurrencia
+#### 2.4.2 La recurrencia
 
 Definimos `K[i][w]` como **el mayor valor nutricional que se puede cargar escogiendo solo entre los primeros `i` lotes, en un vehículo con `w` kg de capacidad**. La respuesta para un vehículo es `K[n][W]`.
 
@@ -115,9 +185,366 @@ Cada término significa:
 - **Orden de llenado:** cada casilla solo depende de la fila de arriba. Por eso la tabla se llena **fila por fila, de arriba hacia abajo**, y dentro de cada fila el orden de las columnas no importa.
 - **Reconstrucción:** partimos de `K[n][W]` y subimos una fila a la vez. Si `K[i][w] ≠ K[i-1][w]`, el lote `i` cambió el resultado y por lo tanto subió, así que restamos su peso a `w`. Si son iguales, no subió.
 
-### 2.4 Ejemplo resuelto a mano
+#### 2.4.3 Ejemplo resuelto a mano
 
-Es un vehículo de juguete de **10 kg** con **5 lotes**. Los días para vencer solo los usa la regla actual. Este mismo ejemplo es el contraejemplo de la sección 5.1.
+En el **Anexo A.3** está la tabla K completa de un vehículo de 10 kg con 5 lotes, llenada fila por fila, y la reconstrucción de los lotes que suben. Resultado: suben L1 y L2, con 10 kg y valor **23**; la regla actual carga 16 y la regla por densidad, 20 (sección 5.3.1).
+
+#### 2.4.4 Las reglas contra las que se compara
+
+- **Regla actual (por vencimiento).** Ordena los lotes por días para vencer, de menor a mayor, los va subiendo y se detiene en el primero que no cabe (ver los supuestos en 1.5). Es la línea base del proceso actual.
+- **Voraz por densidad.** Ordena por valor por kilogramo, de mayor a menor, y sube cada lote que quepa, saltando los que no. Es la regla "tentadora" que el caso pide incluir como segundo contraste.
+
+Las dos ordenan una sola vez y nunca deshacen una elección. Eso las hace rápidas, Θ(n log n), pero ninguna garantiza el óptimo (sección 5.3.1).
+
+### 2.5 Operación 4 — Saturación de la bodega
+
+> _En construcción: esta parte la agrega el integrante 3._
+
+### 2.6 Cómo reduce el consumo energético cada propuesta
+
+> _En construcción: esta parte la agrega el integrante 4._
+
+---
+
+## 3. Implementación
+
+### 3.1 Tecnologías y herramientas
+
+> _En construcción: esta parte la agrega el integrante 4._
+
+### 3.3 Operación 1 — Consulta de inventario
+
+| Archivo | Contenido |
+|---|---|
+| [`datos.py`](src/consulta_inventario/datos.py) | `Lote` (tupla con nombre), `generar_inventario` (códigos únicos barajados, el 40 % de los lotes vence en el primer mes) y `generar_consultas` (10 % de códigos inexistentes). |
+| [`actual.py`](src/consulta_inventario/actual.py) | `buscar_lineal` y `por_vencer_lineal`: el proceso actual. |
+| [`indice.py`](src/consulta_inventario/indice.py) | `construir_indice`, `buscar_hash`, `buscar_binaria` y `por_vencer_binaria`, con las búsquedas binarias escritas a mano (`primera_posicion_no_menor`, `primera_posicion_mayor`). |
+| [`pruebas.py`](src/consulta_inventario/pruebas.py) | Casos límite, ejemplo a mano, 200 inventarios aleatorios y la prueba de que el registro original no cambia. |
+| [`medicion.py`](src/consulta_inventario/medicion.py) | Experimento con n de 14.312 a 458.000 lotes, gráficas y extrapolación. |
+
+Decisiones: `construir_indice` recibe la lista FEFO de la operación 2 si ya existe, para no volver a ordenar. El índice guarda **referencias** a los mismos lotes (la prueba lo verifica con `is`). Si se pide un rango al revés (desde > hasta), devuelve una lista vacía.
+
+### 3.4 Operación 2 — Ordenamiento FEFO
+
+> _En construcción: esta parte la agrega el integrante 2._
+
+### 3.5 Operación 3 — Cargue de los vehículos
+
+El código está en [`src/cargue_vehiculos/`](src/cargue_vehiculos/):
+
+| Archivo | Qué contiene |
+|---|---|
+| [`estrategia.py`](src/cargue_vehiculos/estrategia.py) | `cargar_vehiculo`: mochila 0/1 por programación dinámica (`llenar_tabla`) y reconstrucción de los lotes (`reconstruir_lotes`). |
+| [`exhaustivo.py`](src/cargue_vehiculos/exhaustivo.py) | `cargar_exhaustivo`: prueba los 2ⁿ subconjuntos. Es la solución exacta con la que verificamos. |
+| [`regla_actual.py`](src/cargue_vehiculos/regla_actual.py) | `cargar_por_vencimiento` (procedimiento actual) y `cargar_por_densidad` (voraz por valor por kg). |
+| [`pruebas.py`](src/cargue_vehiculos/pruebas.py) | Pruebas con `assert`: casos límite, ejemplo a mano, contraejemplo, restricción del negocio y 200 instancias aleatorias. |
+| [`datos.py`](src/cargue_vehiculos/datos.py) | Generador de lotes sintéticos con semilla fija. |
+| [`medicion.py`](src/cargue_vehiculos/medicion.py) | Experimentos, gráficas y resumen de la extrapolación. |
+
+**Decisiones de implementación:**
+
+- **Todo escrito a mano.** No usamos bibliotecas de optimización ni de mochila. En la solución exhaustiva usamos `itertools.product` solo para enumerar los subconjuntos (las "filas de interruptores"). Revisar el peso de cada uno y quedarse con el mejor lo hace nuestro código.
+- **Una fila por lote.** La fila `i` de la tabla corresponde a `lotes[i - 1]`, porque la fila 0 es el caso base. Cada fila nueva empieza como copia de la anterior (la opción "no subir") y después solo se recorren las columnas `w ≥ peso`, donde el lote cabe. El resultado es el mismo que con la recurrencia escrita casilla por casilla, pero ahorramos los `if` de las columnas donde el lote no cabe.
+- **Se guarda la tabla completa.** Con una sola fila se podría calcular el valor, pero se perdería la información para saber qué lotes subieron. Como el caso necesita la lista de lotes, guardamos las `n + 1` filas.
+- **Índices en orden creciente.** Las cuatro funciones devuelven los índices ordenados, así es fácil compararlos.
+- **Entradas triviales.** Si la capacidad es 0 o no hay lotes, `cargar_vehiculo` devuelve `(0, [])` sin construir la tabla.
+- **Contadores de operaciones propios.** Cada módulo tiene un contador con `reiniciar_operaciones()` y `leer_operaciones()`. La programación dinámica cuenta **celdas calculadas**: suma `W + 1` por cada fila, que es exactamente una por casilla. La exhaustiva cuenta **lotes revisados**: `n` por cada subconjunto. Las reglas cuentan **comparaciones del ordenamiento más lotes revisados**. Para eso el ordenamiento usa un comparador propio (`functools.cmp_to_key`) que incrementa el contador.
+- **Estilo.** Todo el código sigue PEP 8 (revisado con `flake8`), tiene *type hints* y lleva un docstring estilo Google en cada función.
+
+### 3.6 Operación 4 — Saturación de la bodega
+
+> _En construcción: esta parte la agrega el integrante 3._
+
+---
+
+## 4. Evaluación del desempeño
+
+### 4.1 Metodología común
+
+> _En construcción: esta parte la agrega el integrante 4._
+
+### 4.2 Operación 1 — Consulta de inventario
+
+**Complejidad.**
+
+| Estrategia | Tiempo por consulta | Preparación (una vez al día) | Espacio adicional |
+|---|---|---|---|
+| Lineal (actual), por código | Θ(n): n/2 en promedio si existe, n si no existe | — | Θ(1) |
+| Búsqueda binaria, por código | Θ(log n) | ordenar por código: Θ(n log n) | Θ(n) |
+| Tabla hash, por código | Θ(1) en promedio | Θ(n) | Θ(n) |
+| Lineal (actual), por rango | Θ(n) | — | Θ(r) |
+| Búsqueda binaria, por rango | Θ(log n + r) | la lista FEFO ya viene de la operación 2 | Θ(n) para los vencimientos + Θ(r) |
+
+**Verificación** ([`pruebas.py`](src/consulta_inventario/pruebas.py)). Casos límite (inventario vacío, un lote, código inexistente, rango vacío, rango al revés). El ejemplo a mano. 200 inventarios aleatorios, cada uno con 20 consultas por código y 10 por rango: la tabla hash y la búsqueda binaria devuelven siempre lo mismo que la búsqueda lineal, y el rango sale en orden FEFO. También se verifica que el registro original no cambia y que el índice devuelve el mismo objeto (`is`), no una copia. Salida: `Todas las pruebas pasaron.`
+
+**Gráficas.**
+
+![Consulta de inventario: tiempo por consulta](graficas/consulta_inventario/tiempo_vs_n.png)
+
+![Consulta de inventario: operaciones por consulta](graficas/consulta_inventario/operaciones_vs_n.png)
+
+En los ejes log-log, la búsqueda lineal es una recta de pendiente 1 (lineal). La binaria es casi plana (logarítmica) y la tabla hash es plana (constante). Con 229.000 lotes, una consulta lineal tarda unos 8 ms; la binaria, unos 3 µs, y la hash, 0,4 µs.
+
+**Lo medido contra lo esperado** (factor al duplicar n, de [`resumen.md`](graficas/consulta_inventario/resumen.md)):
+
+| Consulta | Estrategia | n → 2n | Tiempo × | Operaciones × | Esperado × |
+|---|---|---|---|---|---|
+| Código | Lineal | 114.500 → 229.000 | 2,03 | 2,00 | 2 |
+| Código | Lineal | 229.000 → 458.000 | 2,04 | 2,00 | 2 |
+| Código | Búsqueda binaria | 114.500 → 229.000 | 1,23 | 1,06 | log₂(2n)/log₂n ≈ 1,06 |
+| Código | Tabla hash | 114.500 → 229.000 | 1,10 | 1,00 | 1 |
+| Rango | Lineal | 114.500 → 229.000 | 2,07 | 2,00 | 2 |
+| Rango | Búsqueda binaria | 114.500 → 229.000 | 2,79 | 1,97 | ≈ 2 (domina copiar los r lotes, y r crece con n) |
+
+Los conteos coinciden con la teoría. En tiempo, la binaria y la hash crecen un poco más que su conteo (1,23 y 1,10 en vez de 1,06 y 1,00). Con listas y diccionarios más grandes, los datos ya no caben en la memoria rápida del procesador (caché) y cada acceso cuesta más, aunque el número de accesos no cambie. El rango binario crece casi como la lineal porque, con 72 horas de rango, devuelve unos 13.000 lotes de 229.000: el costo lo domina la copia de r, no la búsqueda. Aun así es unas 200 veces más rápido, porque no revisa los otros 216.000 lotes.
+
+**Escala real.**
+
+- **Restricción de menos de 1 s:** incluso la búsqueda lineal la cumple: su peor caso es 12,5 ms con 229.000 lotes y 25 ms con 458.000. La operación 1 no es un cuello de botella de tiempo de respuesta, sino de **trabajo acumulado**.
+- **Trabajo diario:** 30.000 consultas × 8,1 ms ≈ **4,1 min** con la lineal, frente a 30.000 × 0,39 µs + 23 ms (construir la tabla hash) ≈ **35 ms** con la propuesta.
+- **Ventana:** 14 consultas por rango, 0,25 s (lineal) frente a 0,025 s (binaria). En los dos casos es una fracción despreciable de las 2 h.
+
+### 4.3 Operación 2 — Ordenamiento FEFO
+
+> _En construcción: esta parte la agrega el integrante 2._
+
+### 4.4 Operación 3 — Cargue de los vehículos
+
+#### 4.4.1 Complejidad
+
+| Solución | Tiempo | Espacio | Por qué |
+|---|---|---|---|
+| Programación dinámica | **Θ(n·W)** | Θ(n·W) | La tabla tiene `(n + 1)·(W + 1)` casillas y cada una se calcula en tiempo constante (una suma y una comparación). Guardamos la tabla completa para reconstruir. La reconstrucción agrega Θ(n). |
+| Exhaustiva | **Θ(n·2ⁿ)** | Θ(n) | Hay 2ⁿ subconjuntos y para cada uno se suman hasta `n` pesos y valores. Solo guarda el mejor subconjunto. |
+| Regla actual (vencimiento) | Θ(n log n) | Θ(n) | Ordenar domina; el recorrido es Θ(n) (y puede parar antes). |
+| Voraz por densidad | Θ(n log n) | Θ(n) | Ordenar domina; el recorrido es Θ(n). |
+
+**La trampa de Θ(n·W).** Parece un costo polinomial, pero `W` no es un número de datos, es un **valor**: los kilos de capacidad. Si la capacidad se duplica, la tabla tiene el doble de columnas y el tiempo se duplica, aunque los lotes sean los mismos. Por eso este algoritmo se llama **pseudo-polinomial**. En el caso real, `W ≤ 4.000` kg y `n ≤ 600`, así que la tabla tiene como mucho unos 2,4 millones de casillas por vehículo. Si la capacidad se expresara en gramos (`W = 4.000.000`), la misma tabla sería mil veces más grande, aunque el problema fuera el mismo. Lo comprobamos midiendo con `n` fijo y `W` creciente (sección 4.4.4).
+
+**Contraste.** Con `n = 300` lotes, la programación dinámica hace como mucho 301 × 4.001 ≈ 1,2 millones de pasos. La exhaustiva tendría que hacer 300 × 2³⁰⁰ ≈ 6 × 10⁹² pasos. La exhaustiva solo gana cuando `n` es muy pequeño: con `W = 1.000` kg, las dos curvas se cruzan cerca de `n = 10` (gráfica de operaciones de la sección 4.4.4).
+
+#### 4.4.2 Verificación
+
+El script [`pruebas.py`](src/cargue_vehiculos/pruebas.py) usa solo `assert` y se detiene en la primera falla, mostrando la instancia que falló. Cubre:
+
+1. **Casos límite**, para las cuatro soluciones: sin lotes; un solo lote que cabe; un solo lote que no cabe; ningún lote cabe; capacidad 0; todos los lotes caben; un lote que llena exactamente la capacidad.
+2. **El ejemplo resuelto a mano** (Anexo A.3). La tabla `K` que calcula el programa es igual, casilla por casilla, a la que calculamos en papel, y el resultado es valor 23 con los lotes L1 y L2.
+3. **El contraejemplo** (sección 5.3.1): por vencimiento da 16, por densidad da 20 y el óptimo es 23.
+4. **El comportamiento de la regla actual**: se detiene en el primer lote que no cabe. La regla por densidad, en cambio, salta ese lote y sigue.
+5. **200 instancias aleatorias pequeñas** (de 0 a 10 lotes, pesos de 1 a 8 kg, capacidad de 0 a 25 kg, semilla fija 2026). En todas, la programación dinámica obtiene el mismo valor óptimo que la exhaustiva.
+6. **La restricción del negocio**, en esas 200 instancias y para las cuatro soluciones: los índices existen y no se repiten (ningún lote sube dos veces ni a medias), el peso total no supera la capacidad, el valor informado es la suma de los valores **completos** de los lotes cargados, y ninguna regla supera el óptimo.
+
+Salida de `python src/cargue_vehiculos/pruebas.py`:
+
+```
+Casos límite: OK
+Ejemplo resuelto a mano (valor 23, lotes L1 y L2): OK
+Contraejemplo: vencimiento 16, densidad 20, óptimo 23: OK
+La regla actual se detiene en el primer lote que no cabe: OK
+200 instancias aleatorias: la programación dinámica coincide con la exhaustiva y ninguna carga supera la capacidad: OK
+Todas las pruebas pasaron.
+```
+
+Además, `medicion.py` vuelve a verificar dentro de cada experimento que la programación dinámica y la exhaustiva den el mismo valor en todos los tamaños donde corren las dos (hasta 20 lotes).
+
+#### 4.4.3 Cómo medimos esta operación
+
+- **Datos:** [`datos.py`](src/cargue_vehiculos/datos.py) genera lotes con semilla fija (base `2026`). En cada tamaño se generan 3 instancias distintas y **las mismas instancias** se usan para todas las soluciones.
+- **Cronómetro:** [`medicion.py`](src/cargue_vehiculos/medicion.py) usa `time.perf_counter()` solo alrededor de la llamada a cada solución. La generación de datos queda por fuera. Antes de cada medición se llama a `gc.collect()` para que el recolector de basura no caiga en medio.
+- **Repeticiones:** cada instancia se ejecuta 5 veces (la exhaustiva, 1 vez) y se reporta el promedio de todas las ejecuciones.
+- **Experimento 1, n pequeño:** n = 4, 6, 8, 10, 12, 14, 16, 18, 20 lotes, con W = 1.000 kg fijo. Corren las cuatro soluciones. Las parejas de duplicación son 4→8, 6→12, 8→16 y 10→20.
+- **Experimento 2, n grande:** n = 50, 100, 200, 300, 400, 600, 800, 1.200 lotes, con W = 4.000 kg fijo (la capacidad máxima del caso). La exhaustiva ya no corre. Las parejas de duplicación van de 50→100 a 600→1.200.
+- **Experimento 3, W creciente:** n = 300 lotes fijos y W = 500, 1.000, 2.000, 4.000, 8.000, 16.000 kg, solo para la programación dinámica.
+- **Un día con el volumen real:** con `generar_flota` se arman 14 vehículos (capacidad entre 2.500 y 4.000 kg, entre 300 y 600 lotes cada uno) y se ejecutan las soluciones polinomiales. Este día sirve para comprobar la extrapolación.
+- **Computador:** Intel Xeon a 2,10 GHz (2 núcleos), Linux, Python 3.13. El experimento completo tarda menos de un minuto.
+- Las mediciones crudas quedan en [`mediciones.csv`](graficas/cargue_vehiculos/mediciones.csv) y las tablas calculadas en [`resumen.md`](graficas/cargue_vehiculos/resumen.md).
+
+#### 4.4.4 Gráficas
+
+![Tiempo medio frente al número de lotes](graficas/cargue_vehiculos/tiempo_vs_n.png)
+
+*Izquierda:* con eje y logarítmico, la exhaustiva es una recta empinada, que es la forma de una exponencial. La programación dinámica crece despacio y la supera desde unos 10 lotes. *Derecha:* con n grande y ejes lineales, la programación dinámica es una recta (lineal en n con W fijo). Las dos reglas quedan casi pegadas al cero (por debajo de 3 ms incluso con 1.200 lotes) y una tapa a la otra.
+
+![Operaciones elementales frente al número de lotes](graficas/cargue_vehiculos/operaciones_vs_n.png)
+
+El conteo de operaciones tiene la misma forma que el tiempo, pero sin ruido. La exhaustiva sube exactamente como n·2ⁿ y la programación dinámica como n·(W + 1).
+
+![Tiempo de la programación dinámica frente a la capacidad](graficas/cargue_vehiculos/tiempo_vs_capacidad.png)
+
+Con los mismos 300 lotes, el tiempo crece en línea recta con la capacidad W: de 500 a 16.000 kg pasa de unos 5 ms a unos 350 ms. El costo depende de W y no solo del número de lotes.
+
+#### 4.4.5 Lo medido contra lo esperado
+
+Factor por el que se multiplica cada medida al duplicar el tamaño (tomado de [`resumen.md`](graficas/cargue_vehiculos/resumen.md)):
+
+| Solución | Duplicación | Tiempo × | Operaciones × | Esperado por la complejidad |
+|---|---|---|---|---|
+| Programación dinámica (W fijo) | n: 300 → 600 | 1,90 | 2,00 | 2 (lineal en n) |
+| Programación dinámica (W fijo) | n: 600 → 1.200 | 1,99 | 2,00 | 2 |
+| Programación dinámica (n fijo) | W: 4.000 → 8.000 | 2,26 | 2,00 | 2 (lineal en W) |
+| Programación dinámica (n fijo) | W: 8.000 → 16.000 | 1,96 | 2,00 | 2 |
+| Exhaustiva | n: 8 → 16 | 388 | 512 | 2·2⁸ = 512 |
+| Exhaustiva | n: 10 → 20 | 1.366 | 2.048 | 2·2¹⁰ = 2.048 |
+| Regla actual (vencimiento) | n: 300 → 600 | 2,07 | 2,19 | 2·log₂600 / log₂300 ≈ 2,24 |
+| Voraz por densidad | n: 300 → 600 | 2,24 | 2,24 | ≈ 2,24 |
+
+Lo que se lee en la tabla:
+
+- **Las operaciones coinciden exactamente con la teoría.** La programación dinámica cuenta celdas, y al duplicar n o W se duplican las celdas (factor 2,00). La exhaustiva revisa `n·2ⁿ` lotes, y al pasar de 10 a 20 el conteo se multiplica por 2.048, igual que la fórmula.
+- **El tiempo de la programación dinámica sigue al conteo.** Da factores entre 1,90 y 2,26, alrededor del 2 esperado. La diferencia es ruido del sistema operativo y del manejo de memoria de Python, que pesa más cuando las tablas son grandes.
+- **El tiempo de la exhaustiva crece menos que su conteo en n pequeño** (388 en vez de 512, y 1.366 en vez de 2.048). Con pocos lotes, una buena parte del tiempo es costo fijo: llamar la función, crear el generador de `product`, etc. Ese costo no se multiplica por 2ⁿ. A medida que n crece, el factor se acerca al teórico (de 4→8 da 6,3 de 32 esperado, y de 10→20 ya da 1.366 de 2.048).
+- **En n pequeño (experimento 1), los tiempos de la programación dinámica y de las reglas son de décimas de milisegundo**, y sus factores (entre 1,1 y 3,4) son sobre todo ruido. Por eso, para la programación dinámica y las reglas nos apoyamos en el experimento 2.
+- **Las reglas** crecen como n log n. El factor esperado es un poco más que 2 (≈ 2,24), y medimos 2,07 y 2,24.
+
+#### 4.4.6 Escala real y ventana operativa
+
+**Volumen real (peor caso de un día):** 14 vehículos, cada uno con 600 lotes y W = 4.000 kg.
+
+**Cómo extrapolamos.** No usamos una regla de tres sobre un solo punto. Primero confirmamos en las gráficas la forma de cada curva y después ajustamos una constante a esa forma:
+
+- **Programación dinámica:** las gráficas muestran que el tiempo es lineal en n (con W fijo) y lineal en W (con n fijo). Por eso usamos `t ≈ c · n · (W + 1)`. Promediando los puntos de los experimentos 2 y 3 con n ≥ 100, sale `c ≈ 62,4 ns por celda`. Peor día: 14 × 600 × 4.001 ≈ 33,6 millones de celdas, es decir, **≈ 2,1 s**.
+- **Reglas:** `t ≈ c · n log₂ n`, con `c ≈ 150 ns` (vencimiento) y `c ≈ 212 ns` (densidad). Peor día: **≈ 12 ms** y **≈ 16 ms**.
+- **Exhaustiva:** `t ≈ c · n · 2ⁿ`, con `c ≈ 62,5 ns`, ajustada en n = 14 a 20, donde el costo fijo ya pesa poco. Incluso en su caso más favorable (300 lotes por ruta), da 14 × 62,5 ns × 300 × 2³⁰⁰ ≈ **1,7 × 10⁷⁹ años**, unas 10⁶⁹ veces la edad del universo (13.800 millones de años). **La exhaustiva sencillamente no terminaría.** Con la misma constante, en toda la ventana de 2 horas solo alcanzaría a resolver una ruta de unos **31 lotes**.
+
+**Comprobación de la extrapolación.** Ejecutamos un día sintético completo, con 14 vehículos y 6.193 lotes en total (unos 20 millones de celdas). La programación dinámica tardó **1,26 s medidos**. El modelo predice 20 millones × 62,4 ns ≈ 1,25 s, así que la forma de la curva se sostiene en el volumen real.
+
+| Solución | Tiempo por día (peor caso) | Fracción de la ventana de 2 h | ¿Cabe? |
+|---|---|---|---|
+| Programación dinámica | ≈ 2,1 s | ≈ 0,03 % | Sí, con mucha holgura |
+| Regla actual (vencimiento) | ≈ 12 ms | ≈ 0,0002 % | Sí |
+| Voraz por densidad | ≈ 16 ms | ≈ 0,0002 % | Sí |
+| Exhaustiva | ≈ 1,7 × 10⁷⁹ años | — | No: no termina |
+
+La ventana de 2 horas la comparten las operaciones 1 a 3. Aun así, la programación dinámica usa unos 2 segundos de 7.200, lo que deja casi toda la ventana para las otras dos operaciones.
+
+*Todos estos tiempos son estimaciones, medidas en un solo computador con datos sintéticos. En el computador del banco la constante puede ser distinta, pero la forma de las curvas no cambia.*
+
+### 4.5 Operación 4 — Saturación de la bodega
+
+> _En construcción: esta parte la agrega el integrante 3._
+
+### 4.6 El proceso completo dentro de la ventana
+
+> _En construcción: esta parte la agrega el integrante 4._
+
+---
+
+## 5. Análisis comparativo
+
+### 5.1 Operación 1 — Consulta de inventario
+
+| Estrategia | Ventajas | Limitaciones |
+|---|---|---|
+| Lineal (actual) | No necesita preparación ni memoria adicional; ya cumple el límite de 1 s. | Repite todo el trabajo en cada consulta: 4,1 min/día que crecen en proporción a n × consultas. |
+| Búsqueda binaria por código | Θ(log n) y sin hash; sirve también para recorrer lotes en orden de código. | Requiere ordenar por código cada día (≈ 0,9 s) y es unas 7 veces más lenta que la hash. |
+| **Tabla hash + binaria sobre FEFO** | Θ(1) por código y Θ(log n + r) por rango. El índice FEFO viene gratis de la operación 2. | Usa memoria para el diccionario (decenas de MB) y hay que reconstruirlo cuando cambia el inventario. |
+
+**Recomendación:** tabla hash para las consultas por código y búsqueda binaria sobre la lista FEFO para los rangos. La ganancia en la ventana es pequeña (0,25 s → 0,025 s), pero en el alistamiento elimina 4 minutos diarios de cómputo, y el costo diario de construir la tabla hash (23 ms) es despreciable.
+
+### 5.2 Operación 2 — Ordenamiento FEFO
+
+> _En construcción: esta parte la agrega el integrante 2._
+
+### 5.3 Operación 3 — Cargue de los vehículos
+
+#### 5.3.1 Contraejemplo: por qué fallan la regla actual y la regla por densidad
+
+**Instancia:** el ejemplo del Anexo A.3, un vehículo de 10 kg con los lotes L0 (6 kg, 15, vence en 3 días), L1 (5 kg, 11, 1 día), L2 (5 kg, 12, 4 días), L3 (3 kg, 5, 2 días) y L4 (2 kg, 3, 5 días).
+
+| Regla | Qué hace, paso a paso | Lotes | Peso | Valor |
+|---|---|---|---|---|
+| **Por vencimiento (actual)** | El orden es L1 (1 día), L3 (2), L0 (3), L2 (4), L4 (5). Sube L1 (5 kg) y L3 (8 kg). L0 pesaría 14 kg y no cabe, así que **se detiene**. | L1, L3 | 8 kg (80 %) | **16** |
+| **Por densidad** | El orden es L0 (2,50/kg), L2 (2,40), L1 (2,20), L3 (1,67), L4 (1,50). Sube L0 (6 kg). L2 y L1 no caben (11 kg), así que los salta. Sube L3 (9 kg). L4 no cabe (11 kg). | L0, L3 | 9 kg (90 %) | **20** |
+| **Óptimo (programación dinámica)** | Tabla del Anexo A.3. | L1, L2 | 10 kg (100 %) | **23** |
+
+**Diferencia:** la regla actual pierde **7 unidades de valor (30 % del óptimo)** y deja 2 kg vacíos. La regla por densidad pierde **3 unidades (13 %)**.
+
+**Por qué fallan.** La regla actual no tiene en cuenta el valor ni el peso, solo la fecha. Además se detiene en el primer lote que no cabe, aunque detrás haya lotes que sí cabrían. Esto concuerda con que en la realidad los vehículos salgan, en promedio, al 78 % de su capacidad. La regla por densidad sí mira el valor por kilo, pero escoge L0 porque es "el más eficiente", y L0 deja 4 kg libres que ningún lote llena bien. Nunca considera que dos lotes de 5 kg, cada uno un poco menos eficiente, llenan el vehículo exacto. Ninguna de las dos reconsidera lo que ya eligió.
+
+**No es un caso raro.** En 1.000 instancias pequeñas aleatorias (generadas por `medicion.py`, semilla fija):
+
+- la regla por vencimiento no llega al óptimo en **537 de 1.000**. En el peor caso pierde el 100 %: si el primer lote por vencer no cabe, el vehículo sale vacío;
+- la regla por densidad no llega al óptimo en **127 de 1.000**, y en el peor caso pierde el **50 %**.
+
+Una instancia donde una regla acierta no prueba nada. Basta una donde falla para saber que no garantiza el máximo que exige el caso.
+
+#### 5.3.2 Condición contraria: cuándo bastaría una estrategia voraz
+
+La programación dinámica es necesaria porque **los lotes no se fraccionan** y porque **sus pesos son distintos**. Si cambiara alguna de estas condiciones, una regla voraz sería la adecuada:
+
+- **Si los lotes se pudieran partir** (por ejemplo, granos a granel, de los que se puede subir solo una parte y obtener la parte proporcional de su valor), el problema sería una **mochila fraccionaria**. Ahí cargar por densidad y partir el último lote **sí** da el óptimo, en Θ(n log n). Nunca queda un hueco, porque siempre se completa con un pedazo del siguiente lote más eficiente. En el contraejemplo se podrían subir L0 (6 kg) y 4 kg de L2 (4 × 2,40 = 9,6), para un valor de 24,6.
+- **Si todos los lotes pesaran lo mismo** (por ejemplo, estibas estandarizadas de igual peso), en el vehículo cabría un número fijo de lotes `k = ⌊W / peso⌋`. Subir los `k` de mayor valor sería óptimo, y una regla voraz por valor bastaría.
+
+Que el problema permita o no fraccionar es lo que decide qué familia de estrategias sirve.
+
+#### 5.3.3 Recomendación
+
+**Recomendamos adoptar la programación dinámica (mochila 0/1) para planear el cargue de cada vehículo.**
+
+**Qué gana el banco frente a hoy:**
+
+- **El máximo valor nutricional por viaje, garantizado.** No es una aproximación, que es lo que exige el caso. En el día sintético de 14 vehículos, la programación dinámica cargó **637.554** unidades de valor, contra **270.154** de la regla por vencimiento (42,4 % del óptimo). Este contraste tan grande depende de nuestras categorías sintéticas, porque las de mayor prioridad no son las que vencen primero. Con los datos reales del banco la cifra será otra, pero la dirección no cambia: la regla actual no tiene en cuenta el valor.
+- **Vehículos más llenos.** En el día sintético, la programación dinámica llenó en promedio el **100 %** de la capacidad, frente al **94,2 %** de la regla actual. En los datos del cliente la regla actual llega al 78 %. La diferencia sugiere que los lotes reales son más pesados o más variados que los nuestros, y en ese caso la ganancia sería aún mayor.
+- **Cabe de sobra en la ventana:** unos 2 segundos por día, en el peor caso, de una ventana de 2 horas.
+
+**Por qué no la regla por densidad, si llegó al 99,8 %.** Es muy rápida y en datos realistas se acerca mucho al óptimo. Pero no lo garantiza: falla en el 13 % de las instancias pequeñas y puede perder hasta la mitad del valor. El caso pide el máximo exacto, y el costo de la programación dinámica (unos segundos al día) es despreciable.
+
+**Riesgos y límites que el banco debe conocer:**
+
+1. **El costo depende de la capacidad (pseudo-polinomial).** Si los pesos se registraran en gramos en vez de kilogramos, la tabla sería 1.000 veces más grande: unos 35 minutos por día y unos 25 GB de memoria por vehículo, más de lo que tiene un computador común. Hay que mantener los pesos en kilogramos enteros. Si llegaran vehículos más grandes (por ejemplo, de 8.000 kg), el tiempo solo se duplicaría (~4 s), lo cual sigue siendo manejable.
+2. **Memoria.** La tabla del vehículo más grande (600 lotes, 4.000 kg) tiene unos 2,4 millones de casillas. Medimos con `tracemalloc` que ocupa unos 25 MB en Python. Se libera al terminar cada vehículo, así que el uso no se acumula entre los 14.
+3. **La programación dinámica no mira el vencimiento.** Maximiza el valor nutricional y podría dejar en bodega lotes a punto de vencer, lo que se convertiría en desperdicio. Para mitigarlo hay dos opciones: (a) subir el valor de los lotes que vencen pronto, para que la prioridad ya lo incluya; o (b) cargar primero los lotes que vencen en 24 horas y resolver la mochila con la capacidad restante. Esta decisión le corresponde al banco (ver la sección 6.2).
+4. **Crecimiento.** Si la flota creciera, el tiempo crecería en proporción al número de vehículos. Si crecieran los lotes por ruta, crecería en proporción a n. Si crecieran las capacidades, en proporción a W. Duplicar cualquiera de los tres duplica el tiempo, y aun así cabe con holgura.
+
+### 5.4 Operación 4 — Saturación de la bodega
+
+> _En construcción: esta parte la agrega el integrante 3._
+
+### 5.5 Solución recomendada para el proceso
+
+> _En construcción: esta parte la agrega el integrante 4._
+
+---
+
+## 6. Implicaciones éticas, sociales y ambientales
+
+### 6.1 Consumo energético: proceso actual frente a la propuesta
+
+> _En construcción: esta parte la agrega el integrante 4._
+
+---
+
+## 7. Conclusiones
+
+> _En construcción: esta parte la agrega el integrante 4._
+
+---
+
+## 8. Anexos
+
+### Anexo A. Ejemplos resueltos a mano
+
+Cada ejemplo es también una prueba automática (`probar_ejemplo_a_mano` en el `pruebas.py` de su operación), así que el resultado calculado en papel queda verificado por el código.
+
+#### A.1 Operación 1 — Consulta de inventario
+
+Un inventario de 8 lotes, en orden de llegada:
+
+| Orden de llegada | L52 | L07 | L31 | L18 | L44 | L25 | L63 | L10 |
+|---|---|---|---|---|---|---|---|---|
+| Vence en (días) | 5 | 2 | 9 | 2 | 0 | 4 | 7 | 4 |
+| Categoría | 3 | 1 | 0 | 2 | 1 | 0 | 2 | 1 |
+
+- **Lista ordenada por código:** L07, L10, L18, L25, L31, L44, L52, L63. Buscar **L31**: medio = 4 → L31 no es menor que L31, así que alto = 4; medio = 2 → L18 < L31, así que bajo = 3; medio = 3 → L25 < L31, así que bajo = 4. Termina en la posición 4, que es L31: **3 comparaciones**. La búsqueda lineal también hace 3 (L31 es el tercero en llegar). Pero para un código que **no existe** (L30), la lineal revisa los 8 lotes y la binaria sigue haciendo 3. Con 229.000 lotes, serían 229.000 comparaciones frente a unas 18.
+- **Lista FEFO** (vencimiento, categoría): L44 (0, 1), L07 (2, 1), L18 (2, 2), L25 (4, 0), L10 (4, 1), L52 (5, 3), L63 (7, 2), L31 (9, 0). Sus vencimientos son `[0, 2, 2, 4, 4, 5, 7, 9]`. Para "¿qué vence entre los días 2 y 4?": la primera posición con vencimiento ≥ 2 es la 1; la primera con vencimiento > 4 es la 5. El resultado es `fefo[1..4]` = **L07, L18, L25, L10**, ya en orden FEFO. La búsqueda lineal revisa los 8 lotes.
+
+#### A.2 Operación 2 — Ordenamiento FEFO
+
+> _En construcción: esta parte la agrega el integrante 2._
+
+#### A.3 Operación 3 — Cargue de los vehículos
+
+Es un vehículo de juguete de **10 kg** con **5 lotes**. Los días para vencer solo los usa la regla actual. Este mismo ejemplo es el contraejemplo de la sección 5.3.1.
 
 | Lote | Peso (kg) | Valor nutricional | Días para vencer | Valor por kg |
 |---|---|---|---|---|
@@ -166,326 +593,42 @@ Cómo salió cada fila:
 
 **Resultado óptimo:** suben **L1 y L2**, con 10 kg (el vehículo sale lleno) y valor **23**. La prueba `probar_ejemplo_a_mano` de [`pruebas.py`](src/cargue_vehiculos/pruebas.py) verifica esta tabla casilla por casilla.
 
-### 2.5 Las reglas contra las que se compara
+#### A.4 Operación 4 — Saturación de la bodega
 
-- **Regla actual (por vencimiento).** Ordena los lotes por días para vencer, de menor a mayor, los va subiendo y se detiene en el primero que no cabe (ver los supuestos en 1.3). Es la línea base del proceso actual.
-- **Voraz por densidad.** Ordena por valor por kilogramo, de mayor a menor, y sube cada lote que quepa, saltando los que no. Es la regla "tentadora" que el caso pide incluir como segundo contraste.
-
-Las dos ordenan una sola vez y nunca deshacen una elección. Eso las hace rápidas, Θ(n log n), pero ninguna garantiza el óptimo (sección 5.1).
-
-### 2.6 Operación de la segunda parte del proyecto
-
-Pendiente para la entrega del 23 de noviembre.
+> _En construcción: esta parte la agrega el integrante 3._
 
 ---
 
-## 3. Implementación
-
-### 3.1 Operación 3: código
-
-El código está en [`src/cargue_vehiculos/`](src/cargue_vehiculos/):
-
-| Archivo | Qué contiene |
-|---|---|
-| [`estrategia.py`](src/cargue_vehiculos/estrategia.py) | `cargar_vehiculo`: mochila 0/1 por programación dinámica (`llenar_tabla`) y reconstrucción de los lotes (`reconstruir_lotes`). |
-| [`exhaustivo.py`](src/cargue_vehiculos/exhaustivo.py) | `cargar_exhaustivo`: prueba los 2ⁿ subconjuntos. Es la solución exacta con la que verificamos. |
-| [`regla_actual.py`](src/cargue_vehiculos/regla_actual.py) | `cargar_por_vencimiento` (procedimiento actual) y `cargar_por_densidad` (voraz por valor por kg). |
-| [`pruebas.py`](src/cargue_vehiculos/pruebas.py) | Pruebas con `assert`: casos límite, ejemplo a mano, contraejemplo, restricción del negocio y 200 instancias aleatorias. |
-| [`datos.py`](src/cargue_vehiculos/datos.py) | Generador de lotes sintéticos con semilla fija. |
-| [`medicion.py`](src/cargue_vehiculos/medicion.py) | Experimentos, gráficas y resumen de la extrapolación. |
-
-**Decisiones de implementación:**
-
-- **Todo escrito a mano.** No usamos bibliotecas de optimización ni de mochila. En la solución exhaustiva usamos `itertools.product` solo para enumerar los subconjuntos (las "filas de interruptores"). Revisar el peso de cada uno y quedarse con el mejor lo hace nuestro código.
-- **Una fila por lote.** La fila `i` de la tabla corresponde a `lotes[i - 1]`, porque la fila 0 es el caso base. Cada fila nueva empieza como copia de la anterior (la opción "no subir") y después solo se recorren las columnas `w ≥ peso`, donde el lote cabe. El resultado es el mismo que con la recurrencia escrita casilla por casilla, pero ahorramos los `if` de las columnas donde el lote no cabe.
-- **Se guarda la tabla completa.** Con una sola fila se podría calcular el valor, pero se perdería la información para saber qué lotes subieron. Como el caso necesita la lista de lotes, guardamos las `n + 1` filas.
-- **Índices en orden creciente.** Las cuatro funciones devuelven los índices ordenados, así es fácil compararlos.
-- **Entradas triviales.** Si la capacidad es 0 o no hay lotes, `cargar_vehiculo` devuelve `(0, [])` sin construir la tabla.
-- **Contadores de operaciones propios.** Cada módulo tiene un contador con `reiniciar_operaciones()` y `leer_operaciones()`. La programación dinámica cuenta **celdas calculadas**: suma `W + 1` por cada fila, que es exactamente una por casilla. La exhaustiva cuenta **lotes revisados**: `n` por cada subconjunto. Las reglas cuentan **comparaciones del ordenamiento más lotes revisados**. Para eso el ordenamiento usa un comparador propio (`functools.cmp_to_key`) que incrementa el contador.
-- **Estilo.** Todo el código sigue PEP 8 (revisado con `flake8`), tiene *type hints* y lleva un docstring estilo Google en cada función.
-
-### 3.2 Segunda operación del proyecto
-
-Pendiente para la entrega del 23 de noviembre.
-
----
-
-## 4. Evaluación del desempeño
-
-### 4.1 Complejidad de la operación 3
-
-| Solución | Tiempo | Espacio | Por qué |
-|---|---|---|---|
-| Programación dinámica | **Θ(n·W)** | Θ(n·W) | La tabla tiene `(n + 1)·(W + 1)` casillas y cada una se calcula en tiempo constante (una suma y una comparación). Guardamos la tabla completa para reconstruir. La reconstrucción agrega Θ(n). |
-| Exhaustiva | **Θ(n·2ⁿ)** | Θ(n) | Hay 2ⁿ subconjuntos y para cada uno se suman hasta `n` pesos y valores. Solo guarda el mejor subconjunto. |
-| Regla actual (vencimiento) | Θ(n log n) | Θ(n) | Ordenar domina; el recorrido es Θ(n) (y puede parar antes). |
-| Voraz por densidad | Θ(n log n) | Θ(n) | Ordenar domina; el recorrido es Θ(n). |
-
-**La trampa de Θ(n·W).** Parece un costo polinomial, pero `W` no es un número de datos, es un **valor**: los kilos de capacidad. Si la capacidad se duplica, la tabla tiene el doble de columnas y el tiempo se duplica, aunque los lotes sean los mismos. Por eso este algoritmo se llama **pseudo-polinomial**. En el caso real, `W ≤ 4.000` kg y `n ≤ 600`, así que la tabla tiene como mucho unos 2,4 millones de casillas por vehículo. Si la capacidad se expresara en gramos (`W = 4.000.000`), la misma tabla sería mil veces más grande, aunque el problema fuera el mismo. Lo comprobamos midiendo con `n` fijo y `W` creciente (sección 4.4).
-
-**Contraste.** Con `n = 300` lotes, la programación dinámica hace como mucho 301 × 4.001 ≈ 1,2 millones de pasos. La exhaustiva tendría que hacer 300 × 2³⁰⁰ ≈ 6 × 10⁹² pasos. La exhaustiva solo gana cuando `n` es muy pequeño: con `W = 1.000` kg, las dos curvas se cruzan cerca de `n = 10` (gráfica de operaciones de la sección 4.4).
-
-### 4.2 Verificación
-
-El script [`pruebas.py`](src/cargue_vehiculos/pruebas.py) usa solo `assert` y se detiene en la primera falla, mostrando la instancia que falló. Cubre:
-
-1. **Casos límite**, para las cuatro soluciones: sin lotes; un solo lote que cabe; un solo lote que no cabe; ningún lote cabe; capacidad 0; todos los lotes caben; un lote que llena exactamente la capacidad.
-2. **El ejemplo resuelto a mano** (sección 2.4). La tabla `K` que calcula el programa es igual, casilla por casilla, a la que calculamos en papel, y el resultado es valor 23 con los lotes L1 y L2.
-3. **El contraejemplo** (sección 5.1): por vencimiento da 16, por densidad da 20 y el óptimo es 23.
-4. **El comportamiento de la regla actual**: se detiene en el primer lote que no cabe. La regla por densidad, en cambio, salta ese lote y sigue.
-5. **200 instancias aleatorias pequeñas** (de 0 a 10 lotes, pesos de 1 a 8 kg, capacidad de 0 a 25 kg, semilla fija 2026). En todas, la programación dinámica obtiene el mismo valor óptimo que la exhaustiva.
-6. **La restricción del negocio**, en esas 200 instancias y para las cuatro soluciones: los índices existen y no se repiten (ningún lote sube dos veces ni a medias), el peso total no supera la capacidad, el valor informado es la suma de los valores **completos** de los lotes cargados, y ninguna regla supera el óptimo.
-
-Salida de `python src/cargue_vehiculos/pruebas.py`:
-
-```
-Casos límite: OK
-Ejemplo resuelto a mano (valor 23, lotes L1 y L2): OK
-Contraejemplo: vencimiento 16, densidad 20, óptimo 23: OK
-La regla actual se detiene en el primer lote que no cabe: OK
-200 instancias aleatorias: la programación dinámica coincide con la exhaustiva y ninguna carga supera la capacidad: OK
-Todas las pruebas pasaron.
-```
-
-Además, `medicion.py` vuelve a verificar dentro de cada experimento que la programación dinámica y la exhaustiva den el mismo valor en todos los tamaños donde corren las dos (hasta 20 lotes).
-
-### 4.3 Cómo medimos
-
-- **Datos:** [`datos.py`](src/cargue_vehiculos/datos.py) genera lotes con semilla fija (base `2026`). En cada tamaño se generan 3 instancias distintas y **las mismas instancias** se usan para todas las soluciones.
-- **Cronómetro:** [`medicion.py`](src/cargue_vehiculos/medicion.py) usa `time.perf_counter()` solo alrededor de la llamada a cada solución. La generación de datos queda por fuera. Antes de cada medición se llama a `gc.collect()` para que el recolector de basura no caiga en medio.
-- **Repeticiones:** cada instancia se ejecuta 5 veces (la exhaustiva, 1 vez) y se reporta el promedio de todas las ejecuciones.
-- **Experimento 1, n pequeño:** n = 4, 6, 8, 10, 12, 14, 16, 18, 20 lotes, con W = 1.000 kg fijo. Corren las cuatro soluciones. Las parejas de duplicación son 4→8, 6→12, 8→16 y 10→20.
-- **Experimento 2, n grande:** n = 50, 100, 200, 300, 400, 600, 800, 1.200 lotes, con W = 4.000 kg fijo (la capacidad máxima del caso). La exhaustiva ya no corre. Las parejas de duplicación van de 50→100 a 600→1.200.
-- **Experimento 3, W creciente:** n = 300 lotes fijos y W = 500, 1.000, 2.000, 4.000, 8.000, 16.000 kg, solo para la programación dinámica.
-- **Un día con el volumen real:** con `generar_flota` se arman 14 vehículos (capacidad entre 2.500 y 4.000 kg, entre 300 y 600 lotes cada uno) y se ejecutan las soluciones polinomiales. Este día sirve para comprobar la extrapolación.
-- **Computador:** portátil con Intel Core i5-12450H (8 núcleos), Windows 11, Python 3.12. El experimento completo tarda unos 4 minutos.
-- Las mediciones crudas quedan en [`mediciones.csv`](graficas/cargue_vehiculos/mediciones.csv) y las tablas calculadas en [`resumen.md`](graficas/cargue_vehiculos/resumen.md).
-
-### 4.4 Gráficas
-
-![Tiempo medio frente al número de lotes](graficas/cargue_vehiculos/tiempo_vs_n.png)
-
-*Izquierda:* con eje y logarítmico, la exhaustiva es una recta empinada, que es la forma de una exponencial. La programación dinámica crece despacio y la supera desde unos 10 lotes. *Derecha:* con n grande y ejes lineales, la programación dinámica sigue aproximadamente una recta (lineal en n con W fijo); el quiebre alrededor de 800 lotes es ruido del portátil (cambios de frecuencia del procesador y procesos en segundo plano). Las dos reglas quedan casi pegadas al cero (por debajo de 7 ms incluso con 1.200 lotes) y una tapa a la otra.
-
-![Operaciones elementales frente al número de lotes](graficas/cargue_vehiculos/operaciones_vs_n.png)
-
-El conteo de operaciones tiene la misma forma que el tiempo, pero sin ruido. La exhaustiva sube exactamente como n·2ⁿ y la programación dinámica como n·(W + 1).
-
-![Tiempo de la programación dinámica frente a la capacidad](graficas/cargue_vehiculos/tiempo_vs_capacidad.png)
-
-Con los mismos 300 lotes, el tiempo crece en línea recta con la capacidad W: de 500 a 16.000 kg pasa de unos 9 ms a unos 1.150 ms. El costo depende de W y no solo del número de lotes.
-
-### 4.5 Lo medido contra lo esperado
-
-Factor por el que se multiplica cada medida al duplicar el tamaño (tomado de [`resumen.md`](graficas/cargue_vehiculos/resumen.md)):
-
-| Solución | Duplicación | Tiempo × | Operaciones × | Esperado por la complejidad |
-|---|---|---|---|---|
-| Programación dinámica (W fijo) | n: 300 → 600 | 1,99 | 2,00 | 2 (lineal en n) |
-| Programación dinámica (W fijo) | n: 600 → 1.200 | 1,66 | 2,00 | 2 |
-| Programación dinámica (n fijo) | W: 4.000 → 8.000 | 2,96 | 2,00 | 2 (lineal en W) |
-| Programación dinámica (n fijo) | W: 8.000 → 16.000 | 2,49 | 2,00 | 2 |
-| Exhaustiva | n: 8 → 16 | 361 | 512 | 2·2⁸ = 512 |
-| Exhaustiva | n: 10 → 20 | 1.720 | 2.048 | 2·2¹⁰ = 2.048 |
-| Regla actual (vencimiento) | n: 300 → 600 | 2,19 | 2,19 | 2·log₂600 / log₂300 ≈ 2,24 |
-| Voraz por densidad | n: 300 → 600 | 2,46 | 2,24 | ≈ 2,24 |
-
-Lo que se lee en la tabla:
-
-- **Las operaciones coinciden exactamente con la teoría.** La programación dinámica cuenta celdas, y al duplicar n o W se duplican las celdas (factor 2,00). La exhaustiva revisa `n·2ⁿ` lotes, y al pasar de 10 a 20 el conteo se multiplica por 2.048, igual que la fórmula.
-- **El tiempo de la programación dinámica sigue al conteo.** Da factores entre 1,66 y 2,96, alrededor del 2 esperado. La diferencia es ruido del sistema operativo, de los cambios de frecuencia del procesador del portátil y del manejo de memoria de Python, que pesa más cuando las tablas son grandes.
-- **El tiempo de la exhaustiva crece menos que su conteo en n pequeño** (361 en vez de 512, y 1.720 en vez de 2.048). Con pocos lotes, una buena parte del tiempo es costo fijo: llamar la función, crear el generador de `product`, etc. Ese costo no se multiplica por 2ⁿ. A medida que n crece, el factor se acerca al teórico (de 4→8 da 15,9 de 32 esperado, y de 10→20 ya da 1.720 de 2.048).
-- **En n pequeño (experimento 1), los tiempos de la programación dinámica y de las reglas son de décimas de milisegundo**, y sus factores (entre 1,2 y 5,8) son sobre todo ruido. Por eso, para la programación dinámica y las reglas nos apoyamos en el experimento 2.
-- **Las reglas** crecen como n log n. El factor esperado es un poco más que 2 (≈ 2,24), y medimos 2,19 y 2,46.
-
-### 4.6 Escala real y ventana operativa
-
-**Volumen real (peor caso de un día):** 14 vehículos, cada uno con 600 lotes y W = 4.000 kg.
-
-**Cómo extrapolamos.** No usamos una regla de tres sobre un solo punto. Primero confirmamos en las gráficas la forma de cada curva y después ajustamos una constante a esa forma:
-
-- **Programación dinámica:** las gráficas muestran que el tiempo es lineal en n (con W fijo) y lineal en W (con n fijo). Por eso usamos `t ≈ c · n · (W + 1)`. Promediando los puntos de los experimentos 2 y 3 con n ≥ 100, sale `c ≈ 186,7 ns por celda`. Peor día: 14 × 600 × 4.001 ≈ 33,6 millones de celdas, es decir, **≈ 6,3 s**.
-- **Reglas:** `t ≈ c · n log₂ n`, con `c ≈ 558 ns` (vencimiento) y `c ≈ 768 ns` (densidad). Peor día: **≈ 43 ms** y **≈ 60 ms**.
-- **Exhaustiva:** `t ≈ c · n · 2ⁿ`, con `c ≈ 215 ns`, ajustada en n = 14 a 20, donde el costo fijo ya pesa poco. Incluso en su caso más favorable (300 lotes por ruta), da 14 × 215 ns × 300 × 2³⁰⁰ ≈ **5,8 × 10⁷⁹ años**, unas 4 × 10⁶⁹ veces la edad del universo (13.800 millones de años). **La exhaustiva sencillamente no terminaría.** Con la misma constante, en toda la ventana de 2 horas solo alcanzaría a resolver una ruta de unos **30 lotes**.
-
-**Comprobación de la extrapolación.** Ejecutamos un día sintético completo, con 14 vehículos y 6.193 lotes en total (unos 20 millones de celdas). La programación dinámica tardó **2,67 s medidos**. El modelo predice 20 millones × 186,7 ns ≈ 3,7 s. Lo medido queda por debajo de lo predicho porque la constante se ajustó con puntos sueltos en los que el portátil tuvo más variación de velocidad; aun así, el orden de magnitud coincide y la extrapolación queda del lado conservador (sobrestima el tiempo, no lo subestima).
-
-| Solución | Tiempo por día (peor caso) | Fracción de la ventana de 2 h | ¿Cabe? |
-|---|---|---|---|
-| Programación dinámica | ≈ 6,3 s | ≈ 0,09 % | Sí, con mucha holgura |
-| Regla actual (vencimiento) | ≈ 43 ms | ≈ 0,0006 % | Sí |
-| Voraz por densidad | ≈ 60 ms | ≈ 0,0008 % | Sí |
-| Exhaustiva | ≈ 5,8 × 10⁷⁹ años | — | No: no termina |
-
-La ventana de 2 horas la comparten las operaciones 1 a 3. Aun así, la programación dinámica usa unos 6 segundos de 7.200, lo que deja casi toda la ventana para las otras dos operaciones.
-
-*Todos estos tiempos son estimaciones, medidas en un solo computador con datos sintéticos. En el computador del banco la constante puede ser distinta, pero la forma de las curvas no cambia.*
-
-### 4.7 Evaluación de la segunda operación y del proceso completo
-
-Pendiente para la entrega del 23 de noviembre.
-
----
-
-## 5. Análisis comparativo
-
-### 5.1 Contraejemplo: por qué fallan la regla actual y la regla por densidad
-
-**Instancia:** el ejemplo de la sección 2.4, un vehículo de 10 kg con los lotes L0 (6 kg, 15, vence en 3 días), L1 (5 kg, 11, 1 día), L2 (5 kg, 12, 4 días), L3 (3 kg, 5, 2 días) y L4 (2 kg, 3, 5 días).
-
-| Regla | Qué hace, paso a paso | Lotes | Peso | Valor |
-|---|---|---|---|---|
-| **Por vencimiento (actual)** | El orden es L1 (1 día), L3 (2), L0 (3), L2 (4), L4 (5). Sube L1 (5 kg) y L3 (8 kg). L0 pesaría 14 kg y no cabe, así que **se detiene**. | L1, L3 | 8 kg (80 %) | **16** |
-| **Por densidad** | El orden es L0 (2,50/kg), L2 (2,40), L1 (2,20), L3 (1,67), L4 (1,50). Sube L0 (6 kg). L2 y L1 no caben (11 kg), así que los salta. Sube L3 (9 kg). L4 no cabe (11 kg). | L0, L3 | 9 kg (90 %) | **20** |
-| **Óptimo (programación dinámica)** | Tabla de la sección 2.4. | L1, L2 | 10 kg (100 %) | **23** |
-
-**Diferencia:** la regla actual pierde **7 unidades de valor (30 % del óptimo)** y deja 2 kg vacíos. La regla por densidad pierde **3 unidades (13 %)**.
-
-**Por qué fallan.** La regla actual no tiene en cuenta el valor ni el peso, solo la fecha. Además se detiene en el primer lote que no cabe, aunque detrás haya lotes que sí cabrían. Esto concuerda con que en la realidad los vehículos salgan, en promedio, al 78 % de su capacidad. La regla por densidad sí mira el valor por kilo, pero escoge L0 porque es "el más eficiente", y L0 deja 4 kg libres que ningún lote llena bien. Nunca considera que dos lotes de 5 kg, cada uno un poco menos eficiente, llenan el vehículo exacto. Ninguna de las dos reconsidera lo que ya eligió.
-
-**No es un caso raro.** En 1.000 instancias pequeñas aleatorias (generadas por `medicion.py`, semilla fija):
-
-- la regla por vencimiento no llega al óptimo en **537 de 1.000**. En el peor caso pierde el 100 %: si el primer lote por vencer no cabe, el vehículo sale vacío;
-- la regla por densidad no llega al óptimo en **127 de 1.000**, y en el peor caso pierde el **50 %**.
-
-Una instancia donde una regla acierta no prueba nada. Basta una donde falla para saber que no garantiza el máximo que exige el caso.
-
-### 5.2 Condición contraria: cuándo bastaría una estrategia voraz
-
-La programación dinámica es necesaria porque **los lotes no se fraccionan** y porque **sus pesos son distintos**. Si cambiara alguna de estas condiciones, una regla voraz sería la adecuada:
-
-- **Si los lotes se pudieran partir** (por ejemplo, granos a granel, de los que se puede subir solo una parte y obtener la parte proporcional de su valor), el problema sería una **mochila fraccionaria**. Ahí cargar por densidad y partir el último lote **sí** da el óptimo, en Θ(n log n). Nunca queda un hueco, porque siempre se completa con un pedazo del siguiente lote más eficiente. En el contraejemplo se podrían subir L0 (6 kg) y 4 kg de L2 (4 × 2,40 = 9,6), para un valor de 24,6.
-- **Si todos los lotes pesaran lo mismo** (por ejemplo, estibas estandarizadas de igual peso), en el vehículo cabría un número fijo de lotes `k = ⌊W / peso⌋`. Subir los `k` de mayor valor sería óptimo, y una regla voraz por valor bastaría.
-
-Que el problema permita o no fraccionar es lo que decide qué familia de estrategias sirve.
-
-### 5.3 Recomendación para la operación 3
-
-**Recomendamos adoptar la programación dinámica (mochila 0/1) para planear el cargue de cada vehículo.**
-
-**Qué gana el banco frente a hoy:**
-
-- **El máximo valor nutricional por viaje, garantizado.** No es una aproximación, que es lo que exige el caso. En el día sintético de 14 vehículos, la programación dinámica cargó **637.554** unidades de valor, contra **270.154** de la regla por vencimiento (42,4 % del óptimo). Este contraste tan grande depende de nuestras categorías sintéticas, porque las de mayor prioridad no son las que vencen primero. Con los datos reales del banco la cifra será otra, pero la dirección no cambia: la regla actual no tiene en cuenta el valor.
-- **Vehículos más llenos.** En el día sintético, la programación dinámica llenó en promedio el **100 %** de la capacidad, frente al **94,2 %** de la regla actual. En los datos del cliente la regla actual llega al 78 %. La diferencia sugiere que los lotes reales son más pesados o más variados que los nuestros, y en ese caso la ganancia sería aún mayor.
-- **Cabe de sobra en la ventana:** unos 6 segundos por día, en el peor caso, de una ventana de 2 horas.
-
-**Por qué no la regla por densidad, si llegó al 99,8 %.** Es muy rápida y en datos realistas se acerca mucho al óptimo. Pero no lo garantiza: falla en el 13 % de las instancias pequeñas y puede perder hasta la mitad del valor. El caso pide el máximo exacto, y el costo de la programación dinámica (unos segundos al día) es despreciable.
-
-**Riesgos y límites que el banco debe conocer:**
-
-1. **El costo depende de la capacidad (pseudo-polinomial).** Si los pesos se registraran en gramos en vez de kilogramos, la tabla sería 1.000 veces más grande: unas 1 hora y 45 minutos por día (casi toda la ventana) y unos 25 GB de memoria por vehículo, más de lo que tiene un computador común. Hay que mantener los pesos en kilogramos enteros. Si llegaran vehículos más grandes (por ejemplo, de 8.000 kg), el tiempo solo se duplicaría (~13 s), lo cual sigue siendo manejable.
-2. **Memoria.** La tabla del vehículo más grande (600 lotes, 4.000 kg) tiene unos 2,4 millones de casillas. Medimos con `tracemalloc` que ocupa unos 25 MB en Python. Se libera al terminar cada vehículo, así que el uso no se acumula entre los 14.
-3. **La programación dinámica no mira el vencimiento.** Maximiza el valor nutricional y podría dejar en bodega lotes a punto de vencer, lo que se convertiría en desperdicio. Para mitigarlo hay dos opciones: (a) subir el valor de los lotes que vencen pronto, para que la prioridad ya lo incluya; o (b) cargar primero los lotes que vencen en 24 horas y resolver la mochila con la capacidad restante. Esta decisión le corresponde al banco y se discutirá en las implicaciones del informe final.
-4. **Crecimiento.** Si la flota creciera, el tiempo crecería en proporción al número de vehículos. Si crecieran los lotes por ruta, crecería en proporción a n. Si crecieran las capacidades, en proporción a W. Duplicar cualquiera de los tres duplica el tiempo, y aun así cabe con holgura.
-
-### 5.4 Comparación entre las estrategias de las dos operaciones y solución recomendada
-
-Pendiente para la entrega del 23 de noviembre.
-
----
-
-## 6. Implicaciones éticas, sociales y ambientales
-
-### 6.1 Consumo energético de la operación 3
-
-Usamos `kWh = kW × h`, con la potencia del computador del caso (150 W = 0,150 kW) y el tiempo extrapolado del peor caso diario (sección 4.6). La planeación se hace una vez al día, 365 días al año.
-
-| Solución | Tiempo por día | Energía por día | Energía por año |
-|---|---|---|---|
-| Programación dinámica | ≈ 6,3 s = 1,74 × 10⁻³ h | 0,150 × 1,74 × 10⁻³ ≈ **2,6 × 10⁻⁴ kWh** (0,26 Wh) | ≈ **0,095 kWh** (95 Wh) |
-| Regla actual (vencimiento) | ≈ 43 ms = 1,2 × 10⁻⁵ h | ≈ **1,8 × 10⁻⁶ kWh** | ≈ **0,00066 kWh** (0,66 Wh) |
-| Voraz por densidad | ≈ 60 ms | ≈ 2,5 × 10⁻⁶ kWh | ≈ 0,00091 kWh |
-| Exhaustiva | ≈ 5,8 × 10⁷⁹ años | ≈ 8 × 10⁸² kWh | No aplica: no termina |
-
-**Diferencia anual entre la programación dinámica y la regla actual:** ≈ 0,095 − 0,0007 ≈ **0,095 kWh al año (unos 95 Wh)**. Es más o menos lo que gasta un bombillo LED de 10 W en nueve horas y media.
-
-Cómo leer estas cifras:
-
-- **Son estimaciones.** Asumimos que el computador consume sus 150 W completos solo durante el cálculo. Como el computador está encendido toda la ventana para las tres operaciones, lo que calculamos es el consumo *adicional* atribuible a esta operación.
-- **El costo energético de la estrategia óptima es despreciable.** Pasar de la regla actual a la programación dinámica cuesta unos 95 Wh al año. A cambio, cada vehículo sale lleno con el máximo valor nutricional. Si eso evita aunque sea un viaje extra de un camión en todo el año, el ahorro de combustible supera con creces esos 95 Wh. Este impacto lo cuantificaremos en el informe final.
-- **La exhaustiva no es una opción ni energéticamente.** Su cifra no tiene sentido físico: el cálculo no terminaría nunca.
-
-### 6.2 Preguntas de impacto, marco normativo y escenario de crecimiento
-
-#### 6.2.1 Preguntas de impacto
-
-**¿Quién gana y quién podría salir perdiendo con el cambio de regla?**
-Ganan las organizaciones y las familias que reciben las raciones. En nuestro día sintético, cada viaje lleva el máximo valor nutricional que cabe y el vehículo sale lleno. También gana el banco: con el mismo combustible y los mismos conductores reparte más. El riesgo está en los lotes que no suben. La programación dinámica no mira la fecha de vencimiento, así que un lote perecedero de bajo valor por kilo podría quedarse en bodega varios días seguidos y terminar perdiéndose. Eso iría en contra del propósito mismo del banco. Por eso recomendamos una de dos medidas: (a) cargar primero los lotes que vencen en menos de 24 horas y resolver la mochila con la capacidad que quede, o (b) subir el valor de los lotes que están por vencer, para que el algoritmo los prefiera por sí solo.
-
-**¿Quién decide qué significa "valor nutricional"?**
-El algoritmo maximiza el número que le entregan, y ese número sale de las raciones por kilogramo y de la prioridad de cada categoría. Escoger esas prioridades es una decisión ética y de política del banco: por ejemplo, cuánto pesa la proteína frente a los granos, o si se favorecen los hogares con niños. No debe tomarla quien programa. Recomendamos que la defina el equipo de nutrición y de trabajo social del banco, que quede escrita y que se revise periódicamente, porque cambiarla cambia qué alimentos llegan a quién.
-
-**¿El algoritmo reemplaza al coordinador?**
-No. Es una herramienta de apoyo. El coordinador recibe una propuesta de carga óptima y puede modificarla: forzar un lote urgente, sacar uno dañado o separar productos que no deben viajar juntos. Para que confíe en la herramienta, el sistema debería explicar por qué un lote no subió (por ejemplo: "no cabía junto con lotes de mayor valor"). La responsabilidad sobre la carga sigue siendo de una persona.
-
-**¿Hay datos sensibles en esta operación?**
-El cargue solo usa datos de los lotes (peso, valor y vencimiento), no datos de personas. Si más adelante el sistema cruzara la carga con las organizaciones o los hogares beneficiarios, ese tratamiento quedaría sujeto a la Ley 1581 de 2012.
-
-#### 6.2.2 Marco normativo
-
-| Norma | Qué establece | Relación con la operación 3 |
-|---|---|---|
-| [Ley 1990 de 2019](https://dnp.gov.co/publicaciones/Revista-Juridica/Paginas/Reglamentación-de-la-política-pública-integral-para-disminuir-pérdidas-y-desperdicios-de-alimentos.aspx) | Crea la política contra la pérdida y el desperdicio de alimentos en Colombia. | Llevar más alimento por viaje apoya el objetivo de la política. Dejar perecederos en bodega iría en contra de ella. Por eso proponemos la regla de prioridad por vencimiento de la sección 6.2.1. |
-| [Decreto 375 de 2022](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=183946) | Reglamenta la Ley 1990: agrega la Parte 22 al Decreto 1071 de 2015, sobre la disminución de las pérdidas y los desperdicios de alimentos. | Es el marco que orienta los programas de aprovechamiento y distribución de alimentos donados, como la operación del banco. |
-| [Ley 2380 de 2024](https://gestornormativo.creg.gov.co/gestor/entorno/docs/ley_2380_2024.htm) | Promueve la donación de alimentos aptos para el consumo humano a los bancos de alimentos. | Más donaciones significan más lotes candidatos por ruta. Es uno de los motores del escenario de crecimiento (6.2.3). |
-| [Ley 2536 de 2025](https://normograma.supersalud.gov.co/compilacion/docs/ley_2536_2025.htm) | Crea el Fondo Nacional para la Lucha contra el Hambre, la Inseguridad Alimentaria y el Desperdicio de Alimentos, y reconoce a los bancos de alimentos territoriales como aliados. | Puede traducirse en más vehículos y más volumen. Lo tenemos en cuenta en el escenario de crecimiento. |
-| [Resolución 2674 de 2013 (MinSalud)](https://normograma.invima.gov.co/normograma/compilacion/docs/resolucion_minsaludps_2674_2013.htm) | Fija los requisitos sanitarios para quienes almacenan, transportan y distribuyen alimentos, incluidos los vehículos. | **Es un límite de nuestro modelo:** la mochila solo controla el peso y no sabe si dos lotes pueden viajar juntos (por ejemplo, refrigerados con secos). En producción habría que agregar esa restricción, por ejemplo resolviendo una mochila por cada compartimento del vehículo. |
-| [Ley 1581 de 2012](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981) | Régimen general de protección de datos personales. | Hoy no aplica a esta operación, porque solo usa datos de lotes. Aplicaría si se cruzan cargas con beneficiarios. |
-| ODS 2 (hambre cero) y meta 12.3 (reducir el desperdicio de alimentos) | Compromisos internacionales de Colombia. | La operación aporta a los dos, siempre que la optimización no aumente el desperdicio de perecederos. |
-
-#### 6.2.3 Escenario de crecimiento
-
-Usamos el modelo de la sección 4.6, `t ≈ 186,7 ns × n × (W + 1)` por vehículo. El día sintético medido (2,67 s) quedó por debajo de lo que predice el modelo (3,7 s), así que estas cifras son conservadoras: si se equivocan, es por exceso. La memoria se estima a partir de los 25 MB que medimos para una tabla de 600 lotes y 4.000 kg.
-
-| Escenario | Celdas por día | Tiempo por día | % de la ventana de 2 h | Memoria por vehículo | Energía por año |
-|---|---|---|---|---|---|
-| Hoy (peor caso): 14 vehículos, 600 lotes, 4.000 kg | 3,4 × 10⁷ | ≈ 6,3 s | 0,09 % | ≈ 25 MB | ≈ 0,095 kWh |
-| Flota al doble (28 vehículos) | 6,7 × 10⁷ | ≈ 12,5 s | 0,17 % | ≈ 25 MB | ≈ 0,19 kWh |
-| Lotes al doble (1.200 por ruta) | 6,7 × 10⁷ | ≈ 12,5 s | 0,17 % | ≈ 50 MB | ≈ 0,19 kWh |
-| Vehículos de 8.000 kg | 6,7 × 10⁷ | ≈ 12,5 s | 0,17 % | ≈ 50 MB | ≈ 0,19 kWh |
-| Todo al doble (28 vehículos, 1.200 lotes, 8.000 kg) | 2,7 × 10⁸ | ≈ 50 s | 0,70 % | ≈ 100 MB | ≈ 0,76 kWh |
-| Error de unidades: pesos en **gramos** (W = 4.000.000) | 3,4 × 10¹⁰ | ≈ 1 h 45 min | 87 % | ≈ 25 GB | ≈ 95 kWh |
-
-Qué se lee en la tabla:
-
-- **El crecimiento realista no es un problema.** Duplicar la flota, los lotes o la capacidad duplica el tiempo, porque el costo es lineal en cada uno. Aun duplicando las tres cosas a la vez, la operación tarda menos de un minuto (menos del 1 % de la ventana) y gasta menos de 1 kWh al año.
-- **El verdadero riesgo es la unidad de medida.** Como el algoritmo es pseudo-polinomial, registrar los pesos en gramos multiplica la tabla por 1.000 sin mejorar la respuesta. Se comería casi toda la ventana que comparten las tres operaciones (un 87 %), sin dejar tiempo para las otras dos, y necesitaría unos 25 GB de memoria por vehículo, más de lo que tiene un computador de 150 W como el del caso. La regla operativa debe quedar escrita: **los pesos se registran en kilogramos enteros**.
-- **La exhaustiva sigue siendo imposible en cualquier escenario:** en toda la ventana solo alcanza a resolver rutas de unos 30 lotes, y el caso tiene como mínimo 300.
-
----
-
-## 7. Conclusiones
-
-**Operación 3: cargue de los vehículos**
-
-1. **La regla actual no garantiza el máximo, y falla con frecuencia.** En el contraejemplo, cargar por vencimiento da 16 de un óptimo de 23 (30 % menos) y deja 2 kg vacíos. En 1.000 instancias aleatorias no llega al óptimo en 537, y en el peor caso el vehículo sale vacío. Detenerse en el primer lote que no cabe es coherente con que hoy los vehículos salgan al 78 % de su capacidad.
-2. **Cargar por densidad es tentador pero tampoco es exacto.** En datos realistas llega al 99,8 % del óptimo, pero falla en el 13 % de las instancias pequeñas y puede perder hasta la mitad del valor. El caso exige el máximo, no una aproximación, así que no basta.
-3. **La programación dinámica (mochila 0/1) resuelve el problema de forma exacta.** Coincidió con la búsqueda exhaustiva en 200 instancias aleatorias y en todos los tamaños medidos, nunca superó la capacidad y nunca fraccionó un lote.
-4. **Lo medido confirma la teoría.** Al duplicar n o W, las celdas calculadas se multiplicaron exactamente por 2 y el tiempo por un factor entre 1,66 y 2,96, alrededor del 2 esperado (la variación es ruido del portátil). La exhaustiva creció como n·2ⁿ: al pasar de 10 a 20 lotes, sus operaciones se multiplicaron por 2.048.
-5. **Cabe de sobra en la operación real.** En el peor caso tarda unos 6 segundos por día, el 0,09 % de la ventana de 2 horas. Cuesta unos 95 Wh adicionales al año frente a la regla actual, un costo despreciable comparado con salir con cada vehículo lleno. La exhaustiva no terminaría nunca.
-6. **Hay límites que el banco debe conocer:** el costo depende de la capacidad (los pesos deben quedar en kilogramos enteros); el modelo no tiene en cuenta el vencimiento ni la compatibilidad sanitaria entre productos; y la definición del valor nutricional es una decisión del banco, no del algoritmo.
-7. **Qué aprendimos:** escoger la estrategia depende de las propiedades del problema y no de la intuición. Si los lotes se pudieran fraccionar, la regla voraz por densidad sería óptima. Como no se pueden fraccionar, se necesita programación dinámica.
-
----
-
-## 8. Reproducción
+## 9. Reproducción
 
 Requisitos: Python 3.10 o superior.
 
 ```bash
-# 1. Crear y activar el entorno virtual (desde la raíz del repositorio)
+# 1. Entorno virtual (desde la raíz del repositorio)
 python -m venv .venv
 source .venv/bin/activate          # Linux / macOS
-# .venv\Scripts\activate           # Windows (PowerShell o CMD)
+# .venv\Scripts\activate           # Windows
 
-# 2. Instalar las dependencias
+# 2. Dependencias (matplotlib para las gráficas y markdown para el PDF)
 pip install -r requirements.txt
 
-# 3. Ejecutar las pruebas (menos de un segundo)
+# 3. Pruebas (cada una termina con "Todas las pruebas pasaron.")
+python src/consulta_inventario/pruebas.py
+python src/orden_fefo/pruebas.py
 python src/cargue_vehiculos/pruebas.py
+python src/saturacion_bodega/pruebas.py
 
-# 4. Ejecutar la medición y regenerar las gráficas (de 1 a 4 minutos, según el computador)
+# 4. Mediciones y gráficas (entre 1 y 2 minutos cada una)
+python src/consulta_inventario/medicion.py
+python src/orden_fefo/medicion.py
 python src/cargue_vehiculos/medicion.py
+python src/saturacion_bodega/medicion.py
+
+# 5. Proceso completo: ventana, energía y crecimiento (usa los resultados del paso 4)
+python src/proceso/energia.py
+
+# 6. Informe en PDF a partir de este README
+python herramientas/generar_pdf.py
 ```
 
-La medición usa semillas fijas (`2026` y derivadas), así que genera siempre los mismos lotes. Los tiempos cambian un poco según el computador, pero la forma de las curvas y los conteos de operaciones son idénticos. Los resultados se guardan en `graficas/cargue_vehiculos/` (`tiempo_vs_n.png`, `operaciones_vs_n.png`, `tiempo_vs_capacidad.png`, `mediciones.csv` y `resumen.md`).
+Todas las mediciones usan semillas fijas (`2026` y derivadas), así que generan siempre los mismos datos. Los conteos de operaciones son idénticos en cualquier computador. Los tiempos cambian según el equipo, pero no la forma de las curvas ni las conclusiones.
