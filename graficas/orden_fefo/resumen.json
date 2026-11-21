@@ -1,0 +1,25 @@
+{
+  "operacion": "2. Ordenamiento FEFO",
+  "real": {
+    "n": 229000,
+    "k": 9000,
+    "ventana_actual_s": 301.28857159378055,
+    "ventana_mezcla_s": 0.800566647666642,
+    "ventana_propuesta_s": 0.04303893600001629,
+    "dia_actual_s": 301.28857159378055,
+    "dia_propuesta_s": 0.04303893600001629,
+    "kwh_anio_actual": 3.7661071449222567,
+    "kwh_anio_propuesta": 0.0005379867000002037
+  },
+  "crecimiento": {
+    "n": 458000,
+    "k": 18000,
+    "ventana_actual_s": 1205.1542863751222,
+    "ventana_mezcla_s": 1.5096701616666526,
+    "ventana_propuesta_s": 0.08599826866664746,
+    "dia_actual_s": 1205.1542863751222,
+    "dia_propuesta_s": 0.08599826866664746,
+    "kwh_anio_actual": 15.064428579689027,
+    "kwh_anio_propuesta": 0.0010749783583330933
+  }
+}
