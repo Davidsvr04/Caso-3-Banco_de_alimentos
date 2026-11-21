@@ -1,0 +1,37 @@
+{
+  "operacion": "1. Consulta de inventario",
+  "real": {
+    "n": 229000,
+    "consultas_dia": 30000,
+    "ventana_actual_s": 0.25277352613328885,
+    "ventana_propuesta_s": 0.024571617399942625,
+    "alistamiento_actual_s": 243.65871455000274,
+    "alistamiento_propuesta_s": 0.011691869999822302,
+    "alistamiento_binaria_s": 0.0839458799998738,
+    "construir_binaria_s": 0.9259022459999642,
+    "peor_consulta_lineal_s": 0.012487931999999091,
+    "consulta_hash_s": 3.897289999940767e-07,
+    "construir_indice_s": 0.023254239333292997,
+    "dia_actual_s": 243.91148807613604,
+    "dia_propuesta_s": 0.036263487399764927,
+    "kwh_anio_actual": 3.0488936009517005,
+    "kwh_anio_propuesta": 0.00045329359249706157
+  },
+  "crecimiento": {
+    "n": 458000,
+    "consultas_dia": 60000,
+    "ventana_actual_s": 0.5391815426666805,
+    "ventana_propuesta_s": 0.06934769646667671,
+    "alistamiento_actual_s": 995.8736656000043,
+    "alistamiento_propuesta_s": 0.02954126400027235,
+    "alistamiento_binaria_s": 0.23007108799993145,
+    "construir_binaria_s": 2.1017680380000456,
+    "peor_consulta_lineal_s": 0.0249310390000043,
+    "consulta_hash_s": 4.923544000045392e-07,
+    "construir_indice_s": 0.06525042800001302,
+    "dia_actual_s": 996.412847142671,
+    "dia_propuesta_s": 0.09888896046694906,
+    "kwh_anio_actual": 12.455160589283388,
+    "kwh_anio_propuesta": 0.0012361120058368633
+  }
+}
