@@ -48,7 +48,11 @@
 
 #### 1.4.2 Operación 2 — Ordenamiento FEFO
 
-> _En construcción: esta parte la agrega el integrante 2._
+| Elemento | Descripción |
+|---|---|
+| Entradas | La lista del día anterior, ya en orden FEFO (n − k lotes), y los k lotes nuevos del día, en orden de llegada (k entre 6.000 y 9.000). |
+| Salidas | Una sola lista con los n lotes, ordenada por fecha de vencimiento y, a igual fecha, por categoría. Además, la lista de lotes **despachables**, sin los vencidos. |
+| Restricciones | **Ningún lote vencido se despacha.** Dentro de una categoría, siempre sale primero el lote que vence primero. Cabe en la ventana de 2 h. El registro original de cada lote no se modifica. |
 
 #### 1.4.3 Operación 3 — Cargue de los vehículos
 
@@ -85,7 +89,7 @@ En un día hay 14 vehículos, así que la operación se ejecuta 14 veces, una po
 
 **Operación 1.** Los códigos de lote son únicos. Un código consultado que no existe (por ejemplo, mal digitado) es un caso válido y debe responder "no existe". Asumimos 14 consultas por rango al día, una por ruta, del tipo "¿qué vence en las próximas 72 horas?". Si fueran más, el tiempo crece en proporción y la conclusión no cambia.
 
-> _En construcción: esta parte la agrega el integrante 2._
+**Operación 2.** La clave de orden es `(fecha_vencimiento, categoria)`. Si dos lotes tienen la misma fecha y la misma categoría, se conserva su orden de llegada (los del día anterior van primero): las tres estrategias son **estables** y dan exactamente la misma lista. Un lote cuya fecha de vencimiento es hoy todavía se puede despachar; está vencido si su fecha es anterior a hoy. Los lotes nuevos (donaciones) vencen en 1 a 30 días, así que en el orden FEFO van cerca del principio de la lista. Ese es el peor caso para la inserción.
 
 **Operación 3.**
 
@@ -141,7 +145,41 @@ PRIMERA_NO_MENOR(valores, objetivo):
 
 ### 2.3 Operación 2 — Ordenamiento FEFO
 
-> _En construcción: esta parte la agrega el integrante 2._
+**Estrategias diseñadas.**
+
+| Estrategia | Idea | Complejidad |
+|---|---|---|
+| A. Inserción (actual) | Anexa los k nuevos al final y ordena todo por inserción. Los viejos casi no se mueven, pero cada nuevo vence pronto y tiene que desplazarse casi hasta el principio. | Θ(n·k); como k ≈ 3,9 % de n, es **cuadrático** |
+| B. Mezcla de toda la lista | Ordenamiento por mezcla (dividir y vencer) de los n lotes. | Θ(n log n), sin importar cómo llegue la lista |
+| C. Ordenar nuevos + fusionar (**recomendada**) | Ordena por mezcla solo los k nuevos y los fusiona con la lista vieja, que ya está ordenada, en una sola pasada. | **Θ(k log k + n)** |
+
+**Por qué el problema admite dividir y vencer.** Ordenar una lista se puede partir en ordenar dos mitades independientes y después combinarlas: la fusión de dos listas ordenadas es lineal y da una lista ordenada. La estrategia C lleva esa idea un paso más allá: el día anterior ya dejó resuelto el subproblema más grande (los n − k lotes viejos ordenados), así que solo hay que resolver el pequeño (los k nuevos) y hacer **una** fusión. Es la misma operación "combinar" del ordenamiento por mezcla, aplicada una sola vez.
+
+**Cómo reduce el consumo.** Con el volumen real, la inserción hace del orden de n·k ≈ 2.000 millones de pasos. La estrategia C hace unas 135.000 comparaciones. En tiempo, son unas 7.000 veces menos: 5 minutos frente a 43 ms.
+
+**No se despacha nada vencido.** Con la lista en orden FEFO, los lotes vencidos (vencimiento < hoy) forman un bloque al principio. `despachables` encuentra con una búsqueda binaria dónde termina ese bloque y devuelve solo el resto. Es una segunda barrera, independiente del ordenamiento.
+
+**Pseudocódigo.**
+
+```
+FUSIONAR_NUEVOS(viejos, nuevos):
+    nuevos_ordenados ← MEZCLA(nuevos)                 ▹ Θ(k log k)
+    devolver FUSIONAR(viejos, nuevos_ordenados)       ▹ Θ(n)
+
+FUSIONAR(izq, der):                                    ▹ estable: en empate gana la izquierda
+    resultado ← [ ];  i ← 0;  j ← 0
+    mientras i < |izq| y j < |der|:
+        si clave(der[j]) < clave(izq[i]):  agregar der[j];  j ← j + 1
+        si no:                             agregar izq[i];  i ← i + 1
+    agregar lo que quede de izq y de der
+    devolver resultado
+
+MEZCLA(lista):
+    si |lista| ≤ 1: devolver lista
+    devolver FUSIONAR(MEZCLA(primera mitad), MEZCLA(segunda mitad))
+```
+
+**Ejemplo resuelto a mano.** En el **Anexo A.2** se ordenan, paso a paso, 6 lotes viejos y 3 nuevos (uno de ellos ya vencido). La fusión llega a la lista correcta con 9 comparaciones y la inserción con 21, y `despachables` excluye el lote vencido.
 
 ### 2.4 Operación 3 — Cargue de los vehículos
 
@@ -226,7 +264,15 @@ Decisiones: `construir_indice` recibe la lista FEFO de la operación 2 si ya exi
 
 ### 3.4 Operación 2 — Ordenamiento FEFO
 
-> _En construcción: esta parte la agrega el integrante 2._
+| Archivo | Contenido |
+|---|---|
+| [`datos.py`](src/orden_fefo/datos.py) | `Lote`, `clave_fefo`, `generar_dia` (lista vieja ordenada + nuevos que vencen en 1 a 30 días) y `nuevos_para` (k = 9.000/229.000 de n, como en el peor día). |
+| [`actual.py`](src/orden_fefo/actual.py) | `ordenar_insercion`: el proceso actual. |
+| [`estrategias.py`](src/orden_fefo/estrategias.py) | `ordenar_mezcla_total`, `fusionar_nuevos` (recomendada), `fusionar`, `ordenar_mezcla` y `despachables`. |
+| [`pruebas.py`](src/orden_fefo/pruebas.py) | Casos límite, ejemplo a mano, estabilidad en empates, 200 días aleatorios y la restricción FEFO por categoría. |
+| [`medicion.py`](src/orden_fefo/medicion.py) | Experimento de n = 1.789 a 458.000 lotes (la inserción, hasta 57.250), gráficas y extrapolación. |
+
+Decisiones: las tres estrategias son **estables** (la inserción usa `<=` para detenerse y la fusión, en empate, toma el lote de la izquierda), así que dan listas idénticas y se pueden comparar con `==`. `despachables` usa búsqueda binaria en vez de un filtro, porque con la lista ordenada los vencidos forman un bloque al principio.
 
 ### 3.5 Operación 3 — Cargue de los vehículos
 
@@ -306,7 +352,36 @@ Los conteos coinciden con la teoría. En tiempo, la binaria y la hash crecen un 
 
 ### 4.3 Operación 2 — Ordenamiento FEFO
 
-> _En construcción: esta parte la agrega el integrante 2._
+**Complejidad.**
+
+| Estrategia | Tiempo | Espacio adicional | Comentario |
+|---|---|---|---|
+| Inserción (actual) | Θ(n + n·k) en este caso; Θ(n²) en el peor caso general | Θ(n) (la copia) | Cada lote nuevo se desplaza casi toda la lista porque vence pronto. |
+| Mezcla de toda la lista | Θ(n log n) | Θ(n) | No aprovecha que la lista ya venía ordenada. |
+| Ordenar nuevos + fusionar | Θ(k log k + n) | Θ(n) | Con k ≪ n, es prácticamente lineal. |
+
+**Verificación** ([`pruebas.py`](src/orden_fefo/pruebas.py)). Casos límite (todo vacío, solo viejos, solo nuevos, un lote). El ejemplo a mano, incluido el lote vencido que `despachables` excluye. La estabilidad en empates. 200 días aleatorios en los que las **tres estrategias dan exactamente la misma lista**, que además coincide con `sorted` de Python como oráculo independiente. En todos se verifica la restricción FEFO por categoría (`respeta_fefo`), que ningún despachable está vencido y que las listas originales no cambian. Salida: `Todas las pruebas pasaron.`
+
+**Gráficas.**
+
+![Ordenamiento FEFO: tiempo](graficas/orden_fefo/tiempo_vs_n.png)
+
+![Ordenamiento FEFO: comparaciones](graficas/orden_fefo/operaciones_vs_n.png)
+
+En log-log, la inserción tiene pendiente 2 (cuadrática) y las otras dos, pendiente 1 (casi lineal). La distancia vertical entre ellas crece con n. Con el volumen real (línea punteada), la mezcla total tarda 0,8 s y la fusión 43 ms, **medidos directamente**.
+
+**Lo medido contra lo esperado:**
+
+| Estrategia | n → 2n | Tiempo × | Comparaciones × | Esperado × |
+|---|---|---|---|---|
+| Inserción (actual) | 14.312 → 28.625 | 4,24 | 4,00 | 4 (cuadrático: n y k se duplican) |
+| Inserción (actual) | 28.625 → 57.250 | 4,12 | 3,99 | 4 |
+| Mezcla de toda la lista | 114.500 → 229.000 | 2,31 | 2,12 | 2·log₂(2n)/log₂n ≈ 2,12 |
+| Ordenar nuevos + fusionar | 114.500 → 229.000 | 2,28 | 2,13 | ≈ 2,05 |
+
+La inserción se multiplica por 4 al duplicar n, como predice Θ(n·k) cuando k es proporcional a n. La fusión cuenta un poco más de lo que predice el modelo simple (2,13 frente a 2,05). La fusión no recorre toda la lista vieja: se detiene cuando se acaban los nuevos, y la parte que recorre (los lotes que vencen en el primer mes) también crece con n. Los tiempos con n grande suben un poco más que el conteo, por el manejo de memoria de listas de cientos de miles de elementos.
+
+**Escala real.** La inserción se ajustó a `t ≈ c · (n − k) · k`, con c ≈ 152 ns usando los puntos con n ≥ 14.000. Con n = 229.000 y k = 9.000 da **≈ 301 s (5,0 min)** por día; con el doble de lotes, **≈ 20 min**. La propuesta, medida en el mismo volumen: **43 ms** (y 86 ms con el doble).
 
 ### 4.4 Operación 3 — Cargue de los vehículos
 
@@ -443,7 +518,13 @@ La ventana de 2 horas la comparten las operaciones 1 a 3. Aun así, la programac
 
 ### 5.2 Operación 2 — Ordenamiento FEFO
 
-> _En construcción: esta parte la agrega el integrante 2._
+| Estrategia | Ventajas | Limitaciones |
+|---|---|---|
+| Inserción (actual) | Sencilla, estable y rápida cuando casi no hay desorden. | Los nuevos vencen pronto y se desplazan toda la lista: cuadrática. Con una segunda bodega pasaría de 5 a 20 min. |
+| Mezcla de toda la lista | Θ(n log n) garantizado, sin importar cómo llegue la lista. | Repite el trabajo de ordenar lo que ya estaba ordenado: 0,8 s, 19 veces más que la fusión. |
+| **Ordenar nuevos + fusionar** | Θ(k log k + n): aprovecha el orden del día anterior. 43 ms con el volumen real. | Depende de que la lista vieja esté realmente ordenada. Si un día se corrompe, hay que usar la mezcla total una vez (las pruebas detectan ese caso con `respeta_fefo`). |
+
+**Recomendación:** ordenar los nuevos y fusionar, con `despachables` como barrera explícita contra lotes vencidos. Si se sospecha que la lista vieja perdió su orden, la mezcla total es el respaldo seguro.
 
 ### 5.3 Operación 3 — Cargue de los vehículos
 
@@ -540,7 +621,24 @@ Un inventario de 8 lotes, en orden de llegada:
 
 #### A.2 Operación 2 — Ordenamiento FEFO
 
-> _En construcción: esta parte la agrega el integrante 2._
+Las claves son (vencimiento, categoría) y hoy es el día 0.
+
+- Lista vieja (ya ordenada): V (−1, 3), A (1, 2), B (3, 0), C (3, 4), D (6, 1), E (9, 0).
+- Lotes nuevos, en orden de llegada: F (2, 1), G (3, 0), H (1, 5).
+
+*Estrategia C.* Primero se ordenan los nuevos: H (1, 5), F (2, 1), G (3, 0) (3 comparaciones). Después se fusionan, comparando siempre el primero de cada lista:
+
+| Paso | Viejo en turno | Nuevo en turno | ¿Nuevo < viejo? | Sale |
+|---|---|---|---|---|
+| 1 | V (−1, 3) | H (1, 5) | no | V |
+| 2 | A (1, 2) | H (1, 5) | no: misma fecha, categoría 5 > 2 | A |
+| 3 | B (3, 0) | H (1, 5) | sí | H |
+| 4 | B (3, 0) | F (2, 1) | sí | F |
+| 5 | B (3, 0) | G (3, 0) | no: empate, gana el viejo | B |
+| 6 | C (3, 4) | G (3, 0) | sí | G |
+| — | C, D, E | (se acabaron) | — | C, D, E |
+
+Resultado: **V, A, H, F, B, G, C, D, E**, con 3 + 6 = 9 comparaciones. La inserción llega a la misma lista con 21 comparaciones, porque cada nuevo recorre la lista hacia atrás: H, por ejemplo, se compara con E, D, C, G, B, F y A. Por último, `despachables` quita a V, que venció ayer.
 
 #### A.3 Operación 3 — Cargue de los vehículos
 
