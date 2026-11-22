@@ -1,0 +1,28 @@
+{
+  "operacion": "4. Saturación de la bodega",
+  "corridas_anio": 1,
+  "real": {
+    "categorias": 40,
+    "n": 36000,
+    "Fuerza bruta (actual)": 9175508.214182893,
+    "Todos los tramos acumulados": 1240.0578486411061,
+    "Dividir y vencer": 1.8953392799994617,
+    "Kadane": 0.09216532799837296,
+    "corrida_actual_s": 9175508.214182893,
+    "corrida_propuesta_s": 0.09216532799837296,
+    "kwh_anio_actual": 382.3128422576205,
+    "kwh_anio_propuesta": 3.840221999932206e-06
+  },
+  "crecimiento": {
+    "categorias": 80,
+    "n": 36000,
+    "Fuerza bruta (actual)": 18351016.428365786,
+    "Todos los tramos acumulados": 2480.1156972822123,
+    "Dividir y vencer": 3.7906785599989234,
+    "Kadane": 0.18433065599674592,
+    "corrida_actual_s": 18351016.428365786,
+    "corrida_propuesta_s": 0.18433065599674592,
+    "kwh_anio_actual": 764.625684515241,
+    "kwh_anio_propuesta": 7.680443999864413e-06
+  }
+}
