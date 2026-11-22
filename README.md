@@ -3,7 +3,7 @@
 **Integrantes**
 
 - David Viloria
-- Leonel Martinez
+- Leonel
 - Luis Lopera
 - Juana Ospina
 
@@ -81,7 +81,11 @@ En un día hay 14 vehículos, así que la operación se ejecuta 14 veces, una po
 
 #### 1.4.4 Operación 4 — Saturación de la bodega
 
-> _En construcción: esta parte la agrega el integrante 3._
+| Elemento | Descripción |
+|---|---|
+| Entradas | Para cada una de las 40 categorías, una serie de n enteros: el cambio neto del inventario en kg en cada hora de operación (lo que entró menos lo que salió o se descartó; puede ser negativo). Diez años son n ≈ 36.000 horas (12 h × 300 días × 10). |
+| Salidas | Por categoría, el tramo de horas consecutivas `[inicio, fin]` con mayor suma (crecimiento acumulado), y esa suma en kg. |
+| Restricciones | El tramo reportado es **el de mayor crecimiento acumulado**, no una aproximación. La serie original no se modifica. |
 
 ### 1.5 Supuestos
 
@@ -101,7 +105,7 @@ En un día hay 14 vehículos, así que la operación se ejecuta 14 veces, una po
 - **Empates en el óptimo.** Si hay varias cargas con el mismo valor máximo, cualquiera es válida. Las pruebas comparan el valor, no la lista exacta de lotes.
 - **Datos sintéticos.** Los lotes de las mediciones se generan en cinco categorías inventadas por el equipo (proteína, lácteos, frutas y verduras, granos, enlatados). Cada categoría tiene sus propias raciones por kg, su prioridad y su rango de días para vencer, con pesos entre 20 y 500 kg. No son cifras del cliente: solo le dan una estructura realista a los datos.
 
-> _En construcción: esta parte la agrega el integrante 3._
+**Operación 4.** "Evalúa todos los tramos posibles" lo interpretamos como el programa más directo: para cada pareja (inicio, fin) vuelve a sumar las horas del tramo, Θ(n³). Esta lectura es coherente con que hoy tarde "más de un día" (nuestra extrapolación da unos 3 meses). Un tramo tiene al menos una hora. Si hay empates, cualquier tramo con la suma máxima es válido: las pruebas comparan la suma. Asumimos que el análisis se corre **una vez al año**, antes de decidir el alquiler del cuarto frío de temporada. Los datos sintéticos tienen ruido alrededor de un promedio levemente negativo y una temporada de 4 a 8 semanas al año en la que el inventario crece.
 
 ---
 
@@ -236,7 +240,47 @@ Las dos ordenan una sola vez y nunca deshacen una elección. Eso las hace rápid
 
 ### 2.5 Operación 4 — Saturación de la bodega
 
-> _En construcción: esta parte la agrega el integrante 3._
+Es el problema del **subarreglo de suma máxima**: en la serie de cambios netos por hora, encontrar el tramo de horas consecutivas con la mayor suma.
+
+**Estrategias diseñadas.**
+
+| Estrategia | Idea | Complejidad |
+|---|---|---|
+| A. Fuerza bruta (actual) | Para cada pareja (inicio, fin), suma las horas del tramo desde cero. | Θ(n³) tiempo, Θ(1) espacio |
+| B. Todos los tramos acumulados | Igual que A, pero la suma de [i, j] se obtiene sumando una hora a la de [i, j − 1]. Es exacta y la usamos para verificar con series largas. | Θ(n²) |
+| C. Dividir y vencer | El mejor tramo está entero en la mitad izquierda, entero en la derecha, o **cruza** la mitad. Las dos primeras opciones se resuelven por recursión; la tercera, en tiempo lineal. | Θ(n log n) tiempo, Θ(log n) pila |
+| D. Kadane, programación dinámica (**recomendada**) | `M[i]` = la mejor suma de un tramo que **termina** en la hora i. | **Θ(n)** tiempo, **Θ(1)** espacio |
+
+**Por qué el problema admite dividir y vencer (C).** Cualquier tramo de la serie cae en uno de tres casos respecto de la mitad, y esos casos no se solapan. Los dos primeros son el mismo problema sobre una serie de la mitad de largo. El tramo que cruza se arma con el mejor sufijo de la izquierda y el mejor prefijo de la derecha, que se calculan recorriendo cada mitad una vez. La recurrencia es T(n) = 2T(n/2) + Θ(n), es decir, Θ(n log n).
+
+**Por qué admite programación dinámica (D).**
+
+- *Subestructura óptima.* El mejor tramo que termina en la hora i, o es solo la hora i, o es el mejor tramo que termina en i − 1 más la hora i. Si el tramo que termina en i − 1 no fuera el mejor, se podría cambiar por uno mejor y el tramo hasta i también mejoraría.
+- *Subproblemas que se repiten.* La fuerza bruta vuelve a sumar los mismos prefijos una y otra vez. Kadane resuelve cada `M[i]` una sola vez y solo necesita el anterior.
+
+```
+M[0] = x[0]
+M[i] = max( x[i],  M[i−1] + x[i] )        ▹ empezar de nuevo en i, o extender el tramo anterior
+respuesta = max sobre i de M[i]           ▹ el tramo puede terminar en cualquier hora
+```
+
+En otras palabras: si el tramo que viene de atrás ya suma negativo, no le aporta nada a lo que sigue y conviene empezar de nuevo.
+
+**Cómo reduce el consumo.** Con 36.000 horas, la fuerza bruta hace unos 7.800 millones de millones de sumas por categoría (n³/6). Kadane hace 36.000. Una corrida completa pasa de unos 106 días (≈ 382 kWh) a 0,09 s.
+
+**Pseudocódigo de dividir y vencer.**
+
+```
+MEJOR(x, bajo, alto):
+    si bajo = alto: devolver (x[bajo], bajo, bajo)            ▹ caso base: una hora
+    medio ← ⌊(bajo + alto) / 2⌋
+    izq   ← MEJOR(x, bajo, medio)
+    der   ← MEJOR(x, medio + 1, alto)
+    cruce ← mejor sufijo de x[bajo..medio] + mejor prefijo de x[medio+1..alto]
+    devolver el mayor de izq, cruce y der
+```
+
+**Ejemplo resuelto a mano.** En el **Anexo A.4** se resuelve, hora por hora, la serie [3, −5, 4, −1, 6, −8, 2, 1] con Kadane y con dividir y vencer. Las cuatro estrategias dan 9 kg en las horas 2 a 4; la fuerza bruta hace 120 sumas y Kadane 8.
 
 ### 2.6 Cómo reduce el consumo energético cada propuesta
 
@@ -299,7 +343,15 @@ El código está en [`src/cargue_vehiculos/`](src/cargue_vehiculos/):
 
 ### 3.6 Operación 4 — Saturación de la bodega
 
-> _En construcción: esta parte la agrega el integrante 3._
+| Archivo | Contenido |
+|---|---|
+| [`datos.py`](src/saturacion_bodega/datos.py) | `generar_serie` (horas de 12 h × 300 días, con una temporada anual de crecimiento) y `serie_pequena` para las pruebas. |
+| [`actual.py`](src/saturacion_bodega/actual.py) | `tramo_fuerza_bruta`, Θ(n³): el proceso actual. |
+| [`estrategias.py`](src/saturacion_bodega/estrategias.py) | `tramo_acumulado` (Θ(n²)), `tramo_dividir_y_vencer` (Θ(n log n)) y `tramo_kadane` (Θ(n), recomendada). |
+| [`pruebas.py`](src/saturacion_bodega/pruebas.py) | Casos límite (vacía, una hora, todo negativo, todo positivo), ejemplo a mano y 300 series aleatorias. |
+| [`medicion.py`](src/saturacion_bodega/medicion.py) | Experimento de n = 25 a 72.000 horas, gráficas y extrapolación a 40 categorías. |
+
+Decisiones: un tramo se devuelve como `(suma, inicio, fin)`, con los extremos incluidos. La serie vacía devuelve `(0, 0, -1)`. Si todas las horas son negativas, el tramo es la hora menos negativa (nunca un tramo vacío). Dividir y vencer trabaja con índices sobre la misma lista, sin copiar mitades. La recursión llega a una profundidad de unos 17 niveles con 72.000 horas, lejos del límite de Python.
 
 ---
 
@@ -496,7 +548,46 @@ La ventana de 2 horas la comparten las operaciones 1 a 3. Aun así, la programac
 
 ### 4.5 Operación 4 — Saturación de la bodega
 
-> _En construcción: esta parte la agrega el integrante 3._
+**Complejidad.**
+
+| Estrategia | Tiempo | Espacio adicional |
+|---|---|---|
+| Fuerza bruta (actual) | Θ(n³): ∑ de las longitudes de todos los tramos = n(n+1)(n+2)/6 sumas | Θ(1) |
+| Todos los tramos acumulados | Θ(n²): n(n+1)/2 sumas | Θ(1) |
+| Dividir y vencer | Θ(n log n): T(n) = 2T(n/2) + Θ(n) | Θ(log n) (pila de la recursión) |
+| Kadane | Θ(n): una pasada | Θ(1) |
+
+**Verificación** ([`pruebas.py`](src/saturacion_bodega/pruebas.py)). Casos límite: serie vacía, una hora positiva, una negativa, todo negativo (da la hora menos negativa), todo positivo (da la serie completa) y todo ceros. El ejemplo a mano (9 kg, horas 2 a 4). 300 series aleatorias de hasta 40 horas en las que las cuatro estrategias dan la **misma suma máxima** que la fuerza bruta. En cada caso se comprueba además que el tramo devuelto existe y suma lo que dice, y que la serie original no cambia. `medicion.py` repite la comparación en todos los tamaños donde corren al menos dos estrategias. Salida: `Todas las pruebas pasaron.`
+
+**Gráficas.**
+
+![Saturación de la bodega: tiempo](graficas/saturacion_bodega/tiempo_vs_n.png)
+
+![Saturación de la bodega: operaciones](graficas/saturacion_bodega/operaciones_vs_n.png)
+
+En log-log, las pendientes son 3, 2, ≈ 1 y 1: la escalera de complejidades se lee directamente. La fuerza bruta ya tarda 2,7 s con solo 800 horas (unos dos meses de operación). Con 36.000 horas (10 años, línea punteada), dividir y vencer tarda 47 ms y Kadane 2,3 ms por categoría, **medidos**.
+
+**Lo medido contra lo esperado:**
+
+| Estrategia | n → 2n | Tiempo × | Operaciones × | Esperado × |
+|---|---|---|---|---|
+| Fuerza bruta (actual) | 400 → 800 | 8,18 | 7,97 | ≈ 8 (cúbico) |
+| Todos los tramos acumulados | 6.400 → 12.800 | 4,27 | 4,00 | 4 (cuadrático) |
+| Dividir y vencer | 6.400 → 12.800 | 1,96 | 2,15 | 2·log₂(2n)/log₂n ≈ 2,16 |
+| Kadane | 3.200 → 6.400 | 2,04 | 2,00 | 2 (lineal) |
+
+Los conteos coinciden con la teoría hasta el segundo decimal. Los tiempos coinciden dentro del ruido. Con tiempos de pocos milisegundos (Kadane con 36.000 → 72.000 horas dio 3,2), el ruido del sistema operativo pesa más que el algoritmo: por eso tomamos los factores en tamaños donde el tiempo ya es medible con estabilidad.
+
+**Escala real (una corrida = 40 categorías × 36.000 h).**
+
+| Estrategia | Por categoría | Corrida completa | Fuente |
+|---|---|---|---|
+| Fuerza bruta (actual) | ≈ 3 días | **≈ 106 días** | extrapolado con t ≈ 29,5 ns · n³/6 |
+| Todos los tramos acumulados | ≈ 31 s | ≈ 21 min | extrapolado con t ≈ 48 ns · n²/2 |
+| Dividir y vencer | 47 ms | 1,9 s | medido |
+| Kadane | 2,3 ms | **0,09 s** | medido |
+
+El caso dice que hoy tarda "más de un día". Nuestra extrapolación da más de tres meses, así que en la práctica la Dirección nunca obtiene el resultado completo, y por eso solo puede dimensionar el cuarto frío a ojo.
 
 ### 4.6 El proceso completo dentro de la ventana
 
@@ -579,7 +670,16 @@ Que el problema permita o no fraccionar es lo que decide qué familia de estrate
 
 ### 5.4 Operación 4 — Saturación de la bodega
 
-> _En construcción: esta parte la agrega el integrante 3._
+| Estrategia | Ventajas | Limitaciones |
+|---|---|---|
+| Fuerza bruta (actual) | Evidente que es correcta: revisa todo. | Cúbica: ≈ 106 días por corrida. No termina en un tiempo útil. |
+| Todos los tramos acumulados | Exacta, fácil de explicar; sirve como verificador para series largas. | Sigue siendo cuadrática: 21 min por corrida, y crece por 4 si se duplica el histórico. |
+| Dividir y vencer | Θ(n log n); la idea se generaliza a otros problemas y se puede repartir entre varios procesos. | Más compleja (recursión, caso del cruce) y ~20 veces más lenta que Kadane. |
+| **Kadane** | Θ(n) tiempo y Θ(1) espacio; 0,09 s por corrida. Puede procesar los datos **a medida que llegan**, hora por hora. | Solo resuelve "el mejor tramo". Si se pidieran, por ejemplo, los 3 mejores tramos sin solaparse, haría falta otra estrategia. |
+
+**Recomendación:** Kadane. Con 0,09 s por corrida, la Dirección puede actualizar el análisis **todos los días**, no una vez al año, y ver si la temporada de este año se parece a las anteriores antes de firmar el alquiler del cuarto frío.
+
+**Condición contraria.** Si la pregunta cambiara a "¿cuál es el tramo de **exactamente** 30 días con más crecimiento?", ya no haría falta ni Kadane: bastaría una ventana deslizante, Θ(n). Si se pidieran los k mejores tramos sin solaparse, la programación dinámica tendría que ampliar su estado.
 
 ### 5.5 Solución recomendada para el proceso
 
@@ -693,7 +793,19 @@ Cómo salió cada fila:
 
 #### A.4 Operación 4 — Saturación de la bodega
 
-> _En construcción: esta parte la agrega el integrante 3._
+Una categoría con 8 horas de cambio neto (kg): x = [3, −5, 4, −1, 6, −8, 2, 1].
+
+*Kadane, hora por hora:*
+
+| Hora i | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| x[i] | 3 | −5 | 4 | −1 | 6 | −8 | 2 | 1 |
+| M[i] = max(x[i], M[i−1] + x[i]) | 3 | max(−5, −2) = −2 | max(4, 2) = **4** (empieza de nuevo) | 3 | **9** | 1 | 3 | 4 |
+| Mejor hasta i | 3 [0,0] | 3 | 4 [2,2] | 4 | **9 [2,4]** | 9 | 9 | 9 |
+
+*Dividir y vencer:* se parte en [3, −5, 4, −1] y [6, −8, 2, 1]. El mejor tramo de la izquierda es 4 (hora 2) y el de la derecha es 6 (hora 4). El que cruza la mitad: el mejor sufijo de la izquierda es 4 − 1 = 3 (horas 2 a 3) y el mejor prefijo de la derecha es 6 (hora 4), así que el cruce suma 3 + 6 = **9**. El mayor de 4, 9 y 6 es **9**.
+
+Las cuatro estrategias dan **9 kg, horas 2 a 4**. La fuerza bruta hace 120 sumas, la acumulada 36, dividir y vencer 32 y Kadane 8.
 
 ---
 
