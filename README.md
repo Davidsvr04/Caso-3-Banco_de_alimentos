@@ -13,7 +13,16 @@
 
 ## Resumen ejecutivo
 
-> _En construcción: esta parte la agrega el integrante 4._
+La planeación de despachos del banco tarda hoy cerca de 4 horas y media, pero su ventana es de 2 horas (03:00 a 05:00). Analizamos las cuatro operaciones críticas del proceso y diseñamos, implementamos y medimos al menos dos estrategias para cada una:
+
+| Operación | Hoy | Recomendamos | Complejidad: hoy → propuesta | Tiempo con el volumen real: hoy → propuesta |
+|---|---|---|---|---|
+| 1. Consulta de inventario | Recorrer toda la lista | Tabla hash (por código) + búsqueda binaria sobre la lista FEFO (por rango) | Θ(n) → Θ(1) y Θ(log n + r) | 4,1 min/día de consultas → 12 ms |
+| 2. Ordenamiento FEFO | Inserción sobre toda la lista | Ordenar por mezcla solo los lotes nuevos y fusionarlos con la lista del día anterior (dividir y vencer) | Θ(n·k) → Θ(k log k + n) | 5,0 min → 43 ms |
+| 3. Cargue de vehículos | Cargar por vencimiento hasta que no quepa el siguiente | Mochila 0/1 por programación dinámica | Θ(n log n), no óptima → Θ(n·W), óptima | 12 ms → 2,1 s, con la carga máxima garantizada |
+| 4. Saturación de la bodega | Evaluar y sumar todos los tramos | Kadane (programación dinámica) | Θ(n³) → Θ(n) | ≈ 106 días → 0,09 s |
+
+Con la propuesta, la parte de la planeación que va dentro de la ventana (operaciones 1, 2 y 3) baja a unos **2,2 segundos por día**. Frente a la línea base que reporta el cliente (4,5 h diarias en un equipo de 150 W), eso ahorra unos **202 kWh al año**. A eso se suman unos **382 kWh** por cada corrida del análisis de saturación, que con la estrategia actual tardaría más de tres meses. Lo más valioso, sin embargo, no es la energía del computador: los vehículos salen a tiempo y llenos con el máximo valor nutricional. Eso es menos comida vencida en bodega.
 
 ## Contenido
 
@@ -33,7 +42,45 @@
 
 ### 1.1 Descripción del problema computacional
 
-> _En construcción: esta parte la agrega el integrante 4._
+El Banco Regional de Alimentos recibe donaciones (muchas de ellas próximas a vencer) y las distribuye a 420 organizaciones beneficiarias. Cada madrugada, un proceso en un computador de escritorio de 150 W decide qué lotes salen de la bodega, en qué orden y en qué vehículo. El inventario tiene unos 220.000 lotes activos y cada día llegan entre 6.000 y 9.000 nuevos.
+
+Desde el punto de vista computacional, el proceso es una cadena de cuatro problemas sobre la misma colección de lotes:
+
+1. **Buscar** lotes: por su código (durante el alistamiento) y por rango de fechas de vencimiento (durante la planeación).
+2. **Ordenar** la colección según la política FEFO (*first expired, first out*).
+3. **Escoger** para cada vehículo el subconjunto de lotes de mayor valor nutricional que cabe en su capacidad: es una mochila 0/1.
+4. **Analizar** una serie histórica para encontrar el tramo de horas en que más creció el inventario: es un subarreglo de suma máxima.
+
+Las operaciones 1 (consulta por rango), 2 y 3 deben caber en la ventana de planeación de 2 horas (03:00 a 05:00). La consulta por código ocurre durante el alistamiento (desde las 05:30) y cada una debe responder en menos de 1 segundo. La operación 4 es un análisis aparte, sin ventana fija.
+
+### 1.2 Operaciones críticas y su costo en el proceso actual
+
+Para cada operación reconstruimos en Python la estrategia que el caso describe, la medimos con datos sintéticos de tamaño creciente y extrapolamos al volumen real con la forma de su curva (sección 4).
+
+| Operación | Tamaño n en el caso | Estrategia actual | Orden de crecimiento | Tiempo actual estimado (volumen real) | ¿Dentro de la ventana? |
+|---|---|---|---|---|---|
+| 1a. Lotes por vencer (rango) | 229.000 lotes | Recorre toda la lista | Θ(n) por consulta | 0,25 s al día (14 consultas) | Sí |
+| 1b. Consulta por código | 229.000 lotes, 30.000 consultas/día | Recorre la lista hasta encontrarlo | Θ(n) por consulta | 12,5 ms en el peor caso; 4,1 min/día en total | No aplica (alistamiento); cumple < 1 s |
+| 2. Ordenamiento FEFO | 229.000 lotes, de ellos k = 9.000 nuevos | Inserción sobre la lista con los nuevos al final | Θ(n·k), cuadrático porque k crece con n | **5,0 min al día** | Sí, pero es la más cara de la ventana |
+| 3. Cargue de vehículos | 14 vehículos, hasta 600 lotes y 4.000 kg | Cargar por vencimiento hasta que no quepa el siguiente | Θ(n log n) por vehículo | 12 ms al día, pero **no da el máximo** (los vehículos salen al 78 %) | Sí, pero incumple la restricción de valor máximo |
+| 4. Saturación de la bodega | 40 categorías × 36.000 horas | Evalúa todos los tramos, sumando cada uno | Θ(n³) por categoría | **≈ 106 días** por corrida | No aplica; en la práctica no termina |
+
+**Las operaciones de mayor costo computacional son la 4 (por lejos: cúbica) y la 2 (cuadrática).** La 2 es la que más pesa dentro de la ventana. La 3 es barata, pero su problema es otro: incumple la restricción de cargar el valor máximo.
+
+**Diferencia con lo que reporta el cliente.** Nuestra reconstrucción de las operaciones 1 a 3 suma unos 5 minutos diarios, mientras el cliente reporta 4,5 horas. El caso no describe el resto del proceso actual: el programa heredado, la lectura y escritura de archivos, el cargue que hoy hace el coordinador a mano y el hardware real. Por eso usamos dos líneas base: la **reportada** (4,5 h), para la energía y la ventana, y la **reconstruida** (nuestras mediciones), para comparar estrategias en igualdad de condiciones. Las dos llevan a la misma conclusión.
+
+### 1.3 Costo energético del proceso actual (línea base)
+
+Usamos `kWh = kW × h`, con el computador de 150 W (0,150 kW) y 300 días de operación al año.
+
+| Línea base | Tiempo | Energía por día | Energía al año |
+|---|---|---|---|
+| **Planeación reportada por el cliente** (operaciones 1 a 3) | 4,5 h | 0,150 × 4,5 = **0,675 kWh** | 0,675 × 300 = **202,5 kWh** |
+| Planeación reconstruida (1a + 2 + 3) | 5,0 min | 0,0126 kWh | 3,8 kWh |
+| Consultas por código del alistamiento (1b) | 4,1 min | 0,0102 kWh | 3,0 kWh |
+| Análisis de saturación (4), una corrida al año | ≈ 106 días | — | **≈ 382 kWh** por corrida |
+
+Las cifras de las filas 2 a 4 son estimaciones a partir de nuestras mediciones (sección 4); la de la fila 1 es el dato del cliente.
 
 ### 1.4 Entradas, salidas y restricciones
 
@@ -89,7 +136,12 @@ En un día hay 14 vehículos, así que la operación se ejecuta 14 veces, una po
 
 ### 1.5 Supuestos
 
-> _En construcción: esta parte la agrega el integrante 4._
+**Generales.**
+
+- Los datos del cliente son válidos y caben en memoria. Trabajamos con un solo hilo de ejecución, como el computador del banco.
+- No procesamos el volumen real completo: generamos datos sintéticos con semilla fija, medimos en tamaños crecientes y extrapolamos con la forma de cada curva. Cuando el volumen real se podía ejecutar en pocos segundos (operaciones 1, 2 y 4 con las estrategias propuestas), lo medimos directamente.
+- **300 días de operación al año**, tal como lo informa el cliente, para todas las proyecciones anuales.
+- Las fechas se representan como un número entero de días contados desde hoy (0 = hoy). Así se pueden comparar y restar sin convertir fechas.
 
 **Operación 1.** Los códigos de lote son únicos. Un código consultado que no existe (por ejemplo, mal digitado) es un caso válido y debe responder "no existe". Asumimos 14 consultas por rango al día, una por ruta, del tipo "¿qué vence en las próximas 72 horas?". Si fueran más, el tiempo crece en proporción y la conclusión no cambia.
 
@@ -113,7 +165,14 @@ En un día hay 14 vehículos, así que la operación se ejecuta 14 veces, una po
 
 ### 2.1 Estructuras de datos seleccionadas
 
-> _En construcción: esta parte la agrega el integrante 4._
+| Estructura | Dónde se usa | Por qué |
+|---|---|---|
+| Tupla con nombre `Lote` (inmutable) | Operaciones 1 y 2 | Un lote no se puede modificar por error: esto protege la trazabilidad sanitaria. Además, se lee como un registro (`lote.vencimiento`). |
+| Tabla hash (`dict` código → lote) | Operación 1 | Busca por código en Θ(1) en promedio. Guarda referencias a los mismos lotes, no copias. |
+| Lista ordenada + búsqueda binaria | Operaciones 1 y 2 | La lista en orden FEFO, que produce la operación 2, sirve también como índice por fecha: el rango se ubica con dos búsquedas binarias. |
+| Listas ordenadas que se fusionan | Operación 2 | La lista del día anterior ya está ordenada: basta ordenar los k nuevos y fusionar, sin reordenar todo. |
+| Tabla K de (n + 1) × (W + 1) enteros | Operación 3 | Guarda la solución de cada subproblema de la mochila y permite reconstruir qué lotes suben. |
+| Dos variables (Kadane) | Operación 4 | El mejor tramo que termina en la hora actual y el mejor visto hasta ahora: espacio Θ(1). |
 
 ### 2.2 Operación 1 — Consulta de inventario
 
@@ -284,7 +343,12 @@ MEJOR(x, bajo, alto):
 
 ### 2.6 Cómo reduce el consumo energético cada propuesta
 
-> _En construcción: esta parte la agrega el integrante 4._
+| Operación | Fuente del ahorro | Trabajo con el volumen real: actual → propuesta |
+|---|---|---|
+| 1 | Un índice construido una vez al día evita recorrer la lista en cada consulta. | ≈ 3.800 millones de comparaciones/día → ≈ 30.000 accesos + construir el índice |
+| 2 | Reutiliza el orden del día anterior: solo ordena lo nuevo y fusiona. | ≈ 2.000 millones de pasos → ≈ 135.000 comparaciones |
+| 3 | Gasta unos segundos más de cómputo, pero el vehículo sale lleno con el valor máximo: menos viajes y menos comida vencida. | 12 ms → 2,1 s por día (aumenta, pero es despreciable) |
+| 4 | Pasa de cúbico a lineal. | ≈ 3 × 10¹⁴ sumas → 1,4 millones de sumas por corrida |
 
 ---
 
@@ -292,7 +356,32 @@ MEJOR(x, bajo, alto):
 
 ### 3.1 Tecnologías y herramientas
 
-> _En construcción: esta parte la agrega el integrante 4._
+- **Python 3.10 o superior**, solo con la biblioteca estándar para los algoritmos. No usamos bibliotecas de optimización, de mochila ni de ordenamiento para las estrategias: todo está escrito a mano. Usamos `sorted` únicamente para **preparar** datos de prueba (la lista del día anterior) y como oráculo independiente en las pruebas, nunca como estrategia.
+- **matplotlib** para las gráficas, **`time.perf_counter()`** para cronometrar y **`random.Random(semilla)`** para generar datos reproducibles.
+- **flake8** para revisar PEP 8. Todas las funciones tienen *type hints* y docstring estilo Google.
+- **Git y GitHub** para el trabajo en equipo; cada integrante sube su parte con su cuenta.
+- **markdown** + navegador (o Chrome sin interfaz) para generar el PDF desde este README ([`herramientas/generar_pdf.py`](herramientas/generar_pdf.py)).
+
+### 3.2 Organización del repositorio
+
+Cada operación vive en su propia carpeta de `src/` y deja sus gráficas en la carpeta del mismo nombre en `graficas/`. Todas siguen el mismo patrón: `datos.py` (generador con semilla fija), la estrategia actual, las estrategias propuestas, `pruebas.py` (assert) y `medicion.py` (experimentos y gráficas).
+
+```
+src/
+├── consulta_inventario/   datos.py · actual.py · indice.py · pruebas.py · medicion.py
+├── orden_fefo/            datos.py · actual.py · estrategias.py · pruebas.py · medicion.py
+├── cargue_vehiculos/      datos.py · regla_actual.py · estrategia.py · exhaustivo.py · pruebas.py · medicion.py
+├── saturacion_bodega/     datos.py · actual.py · estrategias.py · pruebas.py · medicion.py
+└── proceso/               energia.py   (une las cuatro mediciones: ventana, energía y crecimiento)
+graficas/<operacion>/      tiempo_vs_n.png · operaciones_vs_n.png · mediciones.csv · resumen.md
+herramientas/              generar_pdf.py
+```
+
+Decisiones comunes a todas las operaciones:
+
+- **El registro original nunca se modifica.** Todas las funciones devuelven estructuras nuevas, y las pruebas comparan la entrada antes y después de llamarlas.
+- **Contadores de operaciones propios** en cada módulo (`reiniciar_operaciones()` / `leer_operaciones()`), para contrastar el conteo con el tiempo.
+- **Verificación dentro de la medición:** cada `medicion.py` comprueba que las estrategias den el mismo resultado en los tamaños donde corren todas.
 
 ### 3.3 Operación 1 — Consulta de inventario
 
@@ -359,7 +448,13 @@ Decisiones: un tramo se devuelve como `(suma, inicio, fin)`, con los extremos in
 
 ### 4.1 Metodología común
 
-> _En construcción: esta parte la agrega el integrante 4._
+- **Datos:** cada operación genera sus datos con semilla fija (base `2026`) y usa **las mismas instancias** para todas sus estrategias en cada tamaño.
+- **Cronómetro:** solo se mide la llamada a la estrategia, con `time.perf_counter()`. La generación de datos queda por fuera, y antes de cada medición se llama a `gc.collect()`.
+- **Repeticiones:** de 3 a 5 por medición, y se reporta el promedio. En los tamaños donde una estrategia lenta tarda más de unos segundos se ejecuta una sola vez.
+- **Tamaños:** cada serie de tamaños se duplica de un punto al siguiente, para leer directamente el factor de crecimiento. Las estrategias rápidas se miden también **en el volumen real** (229.000 lotes, 36.000 horas) y en el de crecimiento (el doble).
+- **Extrapolación:** cuando una estrategia lenta no se puede medir en el volumen real, primero confirmamos en las gráficas la forma de su curva, después ajustamos la constante de esa forma con los puntos más grandes y solo entonces extrapolamos. Nunca usamos una regla de tres sobre un solo punto.
+- **Computador:** Intel Xeon a 2,10 GHz (2 núcleos), Linux, Python 3.13, un solo hilo. En el equipo del banco la constante será otra, pero no la forma de las curvas.
+- **Reproducción:** ver la sección 9. Las mediciones crudas quedan en `graficas/<operacion>/mediciones.csv` y las tablas calculadas en `graficas/<operacion>/resumen.md`.
 
 ### 4.2 Operación 1 — Consulta de inventario
 
@@ -591,7 +686,18 @@ El caso dice que hoy tarda "más de un día". Nuestra extrapolación da más de 
 
 ### 4.6 El proceso completo dentro de la ventana
 
-> _En construcción: esta parte la agrega el integrante 4._
+[`src/proceso/energia.py`](src/proceso/energia.py) reúne los resultados de las cuatro mediciones ([`resumen.md`](graficas/proceso/resumen.md)):
+
+![Tiempo diario dentro de la ventana](graficas/proceso/ventana.png)
+
+| Dentro de la ventana (03:00–05:00) | Actual (reconstruido) | Propuesta |
+|---|---|---|
+| 1a. Lotes por vencer (14 consultas por rango) | 0,25 s | 0,025 s |
+| 2. Ordenamiento FEFO | 5,0 min | 0,043 s |
+| 3. Cargue de 14 vehículos (peor caso) | 0,012 s (sin valor máximo) | 2,1 s |
+| **Total** | **≈ 5,0 min** (4,2 % de la ventana) | **≈ 2,2 s (0,03 %)** |
+
+Con la propuesta, la planeación entera cabe en la ventana con más del 99,9 % de holgura. Esa holgura es la que hace falta para el crecimiento (sección 6.4) y para correr la planeación varias veces si llega un lote urgente.
 
 ---
 
@@ -683,7 +789,14 @@ Que el problema permita o no fraccionar es lo que decide qué familia de estrate
 
 ### 5.5 Solución recomendada para el proceso
 
-> _En construcción: esta parte la agrega el integrante 4._
+| Operación | Estrategia recomendada | Familia | Por qué es la mejor para este caso |
+|---|---|---|---|
+| 1 | Tabla hash (código) + búsqueda binaria sobre FEFO (rango) | Estructura de datos + reducción a la mitad | Elimina el trabajo repetido y reutiliza la lista de la operación 2. |
+| 2 | Ordenar los nuevos por mezcla y fusionar | Dividir y vencer | Es la única que aprovecha que el inventario ya venía ordenado. |
+| 3 | Mochila 0/1 | Programación dinámica | Es la única que garantiza el valor máximo; las reglas voraces fallan. |
+| 4 | Kadane | Programación dinámica | Exacta y lineal; convierte un cálculo de meses en una décima de segundo. |
+
+Las cuatro propuestas encajan en una sola cadena diaria: la operación 2 produce la lista FEFO; la 1 la usa como índice por fecha; la 3 escoge los lotes de cada vehículo entre los despachables, y la 4 corre aparte sobre el histórico. Juntas, la ventana pasa de 4,5 h (reportado) a unos 2 segundos.
 
 ---
 
@@ -691,13 +804,109 @@ Que el problema permita o no fraccionar es lo que decide qué familia de estrate
 
 ### 6.1 Consumo energético: proceso actual frente a la propuesta
 
-> _En construcción: esta parte la agrega el integrante 4._
+`kWh = kW × h`, con 0,150 kW y 300 días al año ([`resumen.md`](graficas/proceso/resumen.md)):
+
+![Energía al año por operación](graficas/proceso/energia_anual.png)
+
+| Operación | Actual: kWh al año | Propuesta: kWh al año |
+|---|---|---|
+| 1a. Lotes por vencer | 0,0032 | 0,0003 |
+| 1b. Consultas por código | 3,05 | 0,0001 |
+| 2. Ordenamiento FEFO | 3,77 | 0,0005 |
+| 3. Cargue de vehículos | 0,0001 | 0,026 |
+| 4. Saturación (1 corrida al año) | ≈ 382 | 0,000004 |
+| **Total reconstruido** | **≈ 389 kWh** | **≈ 0,027 kWh** |
+
+**Frente a la línea base del cliente:** la planeación de 4,5 h diarias gasta **202,5 kWh al año**. Con la propuesta, la ventana usa unos 2,2 s diarios (0,027 kWh al año). **Ahorro: ≈ 202 kWh al año**, más ≈ 382 kWh por cada corrida del análisis de saturación que se deje de hacer con fuerza bruta.
+
+**En CO₂.** Con el factor de emisión del Sistema Interconectado Nacional de 2024 publicado por la UPME (0,220 t CO₂e por MWh, es decir, 0,22 kg por kWh), los 202 kWh ahorrados son unos **45 kg de CO₂e al año**. Con el dato del banco (2,5 kg CO₂e por kg de alimento desechado), eso equivale a evitar que se boten unos **18 kg de comida** en un año.
+
+**El impacto ambiental grande no está en el computador.** Es el impacto de la decisión:
+
+- Hoy los vehículos salen, en promedio, al **78 %** de su capacidad. Con 14 vehículos de 2.500 a 4.000 kg (unos 45.500 kg de capacidad total), ese 22 % vacío son unos **10.000 kg diarios de capacidad sin usar**.
+- *Escenario ilustrativo, no medido:* si apenas el 1 % de esa capacidad recuperada (100 kg diarios) fuera comida que hoy termina vencida en bodega, en 300 días serían 30 toneladas de alimento al año, unas **75 toneladas de CO₂e**. Eso es más de 1.600 veces lo que ahorra el computador.
+- Además, la planeación termina a tiempo: los vehículos salen a las 06:30 y las organizaciones reciben antes de preparar sus comidas.
+
+*Todas las cifras de energía son estimaciones:* combinan mediciones en nuestro computador con la potencia que informa el caso, y suponen que el equipo consume sus 150 W solo mientras calcula.
+
+### 6.2 Personas: quién asume el costo de los errores
+
+**"¿Qué pasa con un jardín infantil que nunca queda en el cargue óptimo?"** La mochila maximiza el valor nutricional **de cada vehículo**. Si las organizaciones de una ruta tienen pocos lotes candidatos, o lotes de menor prioridad, el algoritmo no las va a favorecer, y nada en la fórmula lo corrige. Quien asume el costo es la población más vulnerable: niños y adultos mayores que dependen de esa entrega. Lo mitigamos desde el diseño:
+
+1. **Carga mínima garantizada:** antes de resolver la mochila, se reservan los lotes asignados a organizaciones con población prioritaria (jardines infantiles, hogares de adultos mayores). La mochila optimiza solo la capacidad que queda. Esta reserva es una restricción del negocio que decide el banco, no el algoritmo.
+2. **Prioridad que crece con la espera:** el valor de los lotes de una organización sube cada día que pasa sin recibir. Así, ninguna queda por fuera indefinidamente.
+3. **Indicador de equidad:** reportar a diario cuántos días lleva cada organización sin despacho, y alertar si alguna pasa de un umbral.
+4. **Revisión humana:** la propuesta es una recomendación que el coordinador puede ajustar, y cada ajuste queda registrado.
+
+**"¿Y si un error en el ordenamiento FEFO despacha un lote vencido?"** El costo es de salud: alimentos vencidos que llegan a niños o adultos mayores. También legal y reputacional para el banco, y de confianza para los donantes. Defensas en el diseño:
+
+- `despachables` excluye los vencidos con una búsqueda binaria, **independiente** del ordenamiento.
+- Las pruebas verifican, en 200 días aleatorios, que ningún despachable está vencido y que se respeta el FEFO por categoría.
+- Como el registro original de cada lote nunca se modifica, si algo sale mal se puede rastrear el lote, su donante y su despacho para un retiro de producto.
+
+**Cuando el algoritmo llega tarde**, como pasa hoy, los vehículos salen tarde, las organizaciones reciben después de preparar sus comidas y los perecederos se vencen en bodega. Este es el error más costoso del proceso actual, y la propuesta lo elimina: la planeación tarda segundos.
+
+**El análisis de saturación.** Si sobrestima el crecimiento, el banco alquila un cuarto frío más grande de lo necesario (dinero que no llega a comida). Si lo subestima, la comida se pierde por falta de frío. Por eso exigimos el máximo exacto, no una aproximación.
+
+### 6.3 Marco normativo y buenas prácticas
+
+| Norma o práctica | Qué exige o promueve | Cómo la respeta el diseño |
+|---|---|---|
+| [Resolución 2674 de 2013, MinSalud](https://normograma.invima.gov.co/normograma/compilacion/docs/resolucion_minsaludps_2674_2013.htm) | Requisitos sanitarios para quienes almacenan, transportan y distribuyen alimentos para consumo humano. | Orden FEFO verificado, exclusión explícita de vencidos y registros de lote inmutables para la trazabilidad. Límite: la mochila no sabe qué productos no pueden viajar juntos (refrigerados y secos); debe agregarse por compartimento. |
+| [Ley 1990 de 2019](https://dnp.gov.co/publicaciones/Revista-Juridica/Paginas/Reglamentación-de-la-política-pública-integral-para-disminuir-pérdidas-y-desperdicios-de-alimentos.aspx) y [Decreto 375 de 2022](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=183946) | Política contra la pérdida y el desperdicio de alimentos y su reglamentación. | La planeación a tiempo, el FEFO y los vehículos llenos reducen lo que se vence en bodega. El análisis de saturación ayuda a dimensionar el frío. |
+| [Ley 2380 de 2024](https://gestornormativo.creg.gov.co/gestor/entorno/docs/ley_2380_2024.htm) | Promueve la donación de alimentos aptos a los bancos de alimentos. | Más donaciones significan más lotes: el diseño escala de forma lineal o casi lineal (sección 6.4). |
+| [Ley 2536 de 2025](https://normograma.supersalud.gov.co/compilacion/docs/ley_2536_2025.htm) | Crea el Fondo Nacional para la Lucha contra el Hambre y reconoce a los bancos territoriales como aliados. | Escenario de crecimiento (segunda bodega) considerado en el diseño. |
+| [Ley 1581 de 2012](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981), art. 7, y [Decreto 1377 de 2013](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=53646) | Protección de datos personales; en el tratamiento de datos de niños, niñas y adolescentes se deben respetar sus derechos prevalentes. | **Minimización:** los cuatro algoritmos trabajan solo con datos de lotes (código, categoría, fecha, peso, raciones, donante). Los listados de beneficiarios, que incluyen menores, no se necesitan para planear y deben quedar en un sistema aparte con acceso restringido. |
+| Buena práctica de trazabilidad | Poder reconstruir la historia de cada lote ante un retiro de producto. | Ninguna función modifica el registro original (verificado en las pruebas). Los índices guardan referencias, no copias. |
+| Buena práctica de transparencia algorítmica | Que una decisión automática se pueda explicar y revisar. | La mochila y Kadane son exactos y reproducibles (semilla fija). La reconstrucción de la tabla K explica por qué subió cada lote. |
+
+### 6.4 Sostenibilidad de la decisión: segunda bodega
+
+**Escenario del caso:** el banco abre una segunda bodega y **duplica el número de lotes y de vehículos**. Lo modelamos así: 458.000 lotes, 18.000 nuevos al día, 60.000 consultas por código, 28 vehículos (con el mismo tamaño de ruta) y 80 series de categoría para el análisis de saturación.
+
+| Operación | Actual hoy | Actual con 2 bodegas | Propuesta hoy | Propuesta con 2 bodegas | Crecimiento de la propuesta |
+|---|---|---|---|---|---|
+| 1a. Rango (ventana) | 0,25 s | 0,54 s | 0,025 s | 0,069 s | ≈ ×2 (lineal en r) |
+| 1b. Consultas por código | 4,1 min | **16,6 min** (×4: el doble de consultas sobre el doble de lotes) | 12 ms | 30 ms | ≈ ×2 |
+| 2. Ordenamiento FEFO | 5,0 min | **20,1 min** (×4: cuadrático) | 43 ms | 86 ms | ×2 |
+| 3. Cargue (peor caso) | 12 ms | 23 ms | 2,1 s | 4,2 s | ×2 (lineal en vehículos) |
+| 4. Saturación, una corrida | 106 días | **212 días** | 0,09 s | 0,18 s | ×2 |
+| **Ventana (1a + 2 + 3)** | **5,0 min** | **20,1 min** | **2,2 s** | **4,3 s** | ×2 |
+
+Qué se lee en la tabla:
+
+- **Las estrategias actuales empeoran más rápido que el volumen.** La inserción y las consultas lineales son cuadráticas frente al crecimiento: duplicar el banco cuadruplica su tiempo. Si las 4,5 h reportadas escalaran igual, la planeación pasaría de 18 horas y no cabría ni en un día.
+- **Las propuestas crecen en proporción al volumen.** Duplicar el banco duplica su tiempo: de 2,2 a 4,3 segundos, el 0,06 % de la ventana. Siguen sobrando casi dos horas.
+- **La memoria tampoco es problema.** La mochila sigue resolviendo un vehículo a la vez (unos 25 MB por tabla), y la tabla hash de 458.000 lotes ocupa decenas de MB.
+- **Riesgo que hay que vigilar:** la mochila es pseudo-polinomial. Si llegaran vehículos de 8.000 kg o los pesos se registraran en gramos, su tiempo crecería con W (sección 4.4). Los pesos deben quedarse en kilogramos enteros.
 
 ---
 
 ## 7. Conclusiones
 
-> _En construcción: esta parte la agrega el integrante 4._
+**Principales hallazgos.**
+
+1. **El problema del banco no es el computador, son los algoritmos**, como sospechaba la Dirección. Con el mismo equipo de 150 W, la parte de la planeación que va en la ventana pasa de 4,5 h (reportado) o 5 min (reconstruido) a unos **2 segundos**.
+2. **Las dos operaciones más costosas eran la saturación (cúbica, ≈ 106 días por corrida) y el ordenamiento FEFO (cuadrático).** Kadane las lleva a 0,09 s, y ordenar solo los nuevos y fusionar, a 43 ms.
+3. **La operación 3 no tenía un problema de tiempo, sino de calidad.** La regla actual es rápida pero no carga el valor máximo: en el contraejemplo pierde el 30 %, y en instancias aleatorias falla más de la mitad de las veces. La mochila 0/1 por programación dinámica garantiza el máximo con unos segundos de cómputo.
+4. **Lo medido coincide con lo esperado.** Al duplicar el tamaño, los conteos de operaciones se multiplicaron por 2, 4 y 8 justo donde la teoría lo predecía. Los tiempos se desvían solo por el ruido del sistema y los efectos de memoria.
+5. **El ahorro de energía del computador es real pero pequeño** (≈ 202 kWh y 45 kg de CO₂e al año, más ≈ 382 kWh por corrida de saturación). **El impacto que importa es la comida:** vehículos llenos y a tiempo significan menos lotes vencidos, y cada kilo de comida que no se bota evita 2,5 kg de CO₂e.
+
+**Lecciones aprendidas.**
+
+- La estrategia correcta depende de **propiedades del problema**, no de la intuición. La mochila 0/1 necesita programación dinámica porque los lotes no se fraccionan; si se fraccionaran, bastaría una regla voraz. El FEFO se beneficia de dividir y vencer porque **ya** venía casi ordenado.
+- Una regla que acierta muchas veces no está demostrada. Basta **un** contraejemplo calculado para descartarla, y una solución exhaustiva en instancias pequeñas es la forma más segura de verificar una estrategia rápida.
+- Extrapolar exige primero leer **la forma de la curva** en las gráficas. Una regla de tres sobre un punto habría subestimado la fuerza bruta por meses.
+- No todo lo que es lento es el cuello de botella. La consulta lineal ya cumplía su límite de 1 s; lo que pesa es el trabajo acumulado y, sobre todo, el crecimiento.
+
+**Recomendaciones para futuras mejoras.**
+
+1. **Incluir el vencimiento y la equidad en la mochila:** reservar la carga mínima de las organizaciones prioritarias y aumentar la prioridad de los lotes por vencer y de las organizaciones que llevan días sin recibir.
+2. **Mochila por compartimentos** (refrigerado y seco), para respetar la compatibilidad sanitaria de la Resolución 2674 de 2013.
+3. **Validar con datos reales del banco** y repetir las mediciones en su computador de 150 W, para calibrar las constantes.
+4. **Mantener los índices vivos** durante el día (insertar en la tabla hash y fusionar cada lote nuevo al llegar) en vez de reconstruirlos cada madrugada.
+5. **Correr el análisis de saturación a diario**, ahora que cuesta una décima de segundo, y usarlo como alerta temprana de temporada.
+6. **Automatizar las pruebas** en GitHub Actions, para que ningún cambio futuro rompa el FEFO ni la restricción de capacidad.
 
 ---
 
